@@ -15,7 +15,6 @@ private object Routes {
     const val HOME = "home"
     const val REFERRAL = "referral"
     const val DEVICES = "devices"
-    const val HISTORY = "history"
 }
 
 /**
@@ -44,16 +43,12 @@ fun TvBridgeApp() {
                     HomeScreen(
                         onOpenReferral = { navController.navigate(Routes.REFERRAL) },
                         onOpenDevices = { navController.navigate(Routes.DEVICES) },
-                        onOpenHistory = { navController.navigate(Routes.HISTORY) },
                         onLoggedOut = {
                             navController.navigate(Routes.VERIFY) {
                                 popUpTo(0)
                             }
                         }
                     )
-                }
-                composable(Routes.HISTORY) {
-                    HistoryScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Routes.REFERRAL) {
                     ReferralScreen(onBack = { navController.popBackStack() })

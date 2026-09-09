@@ -62,17 +62,34 @@ import kotlin.random.Random
 /** Misma idea que RecommendationsRowsFragment.Category en la app de TV. */
 enum class Category { MOVIES, SERIES, WATCHLIST }
 
-@Composable
-private fun labelFor(category: Category) = when (category) {
-    Category.MOVIES -> stringResource(R.string.tab_movies)
-    Category.SERIES -> stringResource(R.string.tab_series)
-    Category.WATCHLIST -> stringResource(R.string.tab_watchlist)
+/** Pestañas de la barra de abajo — Historial es una más al mismo nivel que
+ * Películas/Series/Mi lista (no algo escondido en "Más"), y "Más" queda
+ * solo para lo que de verdad es ajustes (app de destino, Referidos,
+ * Dispositivos, cerrar sesión). */
+enum class BottomTab { MOVIES, SERIES, WATCHLIST, HISTORY, MORE }
+
+private fun BottomTab.toCategory(): Category? = when (this) {
+    BottomTab.MOVIES -> Category.MOVIES
+    BottomTab.SERIES -> Category.SERIES
+    BottomTab.WATCHLIST -> Category.WATCHLIST
+    else -> null
 }
 
-private fun emojiFor(category: Category) = when (category) {
-    Category.MOVIES -> "🎬"
-    Category.SERIES -> "📺"
-    Category.WATCHLIST -> "🔖"
+@Composable
+private fun labelFor(tab: BottomTab) = when (tab) {
+    BottomTab.MOVIES -> stringResource(R.string.tab_movies)
+    BottomTab.SERIES -> stringResource(R.string.tab_series)
+    BottomTab.WATCHLIST -> stringResource(R.string.tab_watchlist)
+    BottomTab.HISTORY -> stringResource(R.string.history_title)
+    BottomTab.MORE -> stringResource(R.string.tab_more)
+}
+
+private fun emojiFor(tab: BottomTab) = when (tab) {
+    BottomTab.MOVIES -> "🎬"
+    BottomTab.SERIES -> "📺"
+    BottomTab.WATCHLIST -> "🔖"
+    BottomTab.HISTORY -> "🕒"
+    BottomTab.MORE -> "⚙️"
 }
 
 data class RowUi(
@@ -212,11 +229,16 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Mantener pulsado sobre una tarjeta de "Continuar viendo": la quita
-     * de ahí en vez de tocar Mi lista — mismo criterio que
-     * RecommendationsRowsFragment.onRemoveFromContinueWatching. */
+     * de ahí en vez de tocar Mi lista. OJO: RecommendationHistory.remove()
+     * devuelve el historial SOLO LOCAL de este dispositivo (no el fusionado
+     * con el backend que se usa para pintar la fila) — en el móvil, donde
+     * casi todo "Continuar viendo" viene de la TV y no del propio
+     * dispositivo, usar ese valor de vuelta vaciaba la fila entera al
+     * quitar cualquier título. En vez de eso, filtramos la lista fusionada
+     * que ya tenemos en memoria. */
     fun removeFromContinueWatching(rec: TmdbClient.TmdbRecommendation) {
-        val updated = RecommendationHistory.remove(context, rec.tmdbId, rec.mediaPath)
-        continueWatching = updated.sortedByDescending { it.watchedAt }.take(CONTINUE_WATCHING_MAX).map { it.toTmdbRecommendation() }
+        RecommendationHistory.remove(context, rec.tmdbId, rec.mediaPath)
+        continueWatching = continueWatching.filterNot { it.tmdbId == rec.tmdbId && it.mediaPath == rec.mediaPath }
         rebuildRows(_uiState.value.category)
     }
 
@@ -250,26 +272,27 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 /**
  * Sin barra superior con el nombre de la app (desperdiciaba una fila
  * entera solo para eso) — las pestañas viven abajo, al estilo
- * Instagram/TikTok, con Películas/Series/Mi lista como contenido
- * principal y una cuarta pestaña "Más" para lo que antes vivía en la
- * barra superior (selector de app de destino, Referidos, Dispositivos).
+ * Instagram/TikTok: Películas/Series/Mi lista/Historial como contenido
+ * principal, y "Más" para lo que de verdad es ajustes (app de destino,
+ * Referidos, Dispositivos, cerrar sesión).
  */
 @Composable
 fun HomeScreen(
     onOpenReferral: () -> Unit,
     onOpenDevices: () -> Unit,
-    onOpenHistory: () -> Unit,
     onLoggedOut: () -> Unit,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    historyViewModel: HistoryViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val historyState by historyViewModel.uiState.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState = remember { SnackbarHostState() }
-    var showMore by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(BottomTab.MOVIES) }
 
     val openFailedMessage = stringResource(R.string.home_open_failed)
     val notEnoughHistoryMessage = stringResource(R.string.home_not_enough_history)
-    LaunchedEffect(Unit) { viewModel.refresh() }
+    LaunchedEffect(Unit) { viewModel.refresh(); historyViewModel.refresh() }
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             val message = when (event) {
@@ -279,9 +302,15 @@ fun HomeScreen(
             snackbarHostState.showSnackbar(message)
         }
     }
+    LaunchedEffect(Unit) {
+        historyViewModel.openFailed.collect { snackbarHostState.showSnackbar(openFailedMessage) }
+    }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.refresh()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+                historyViewModel.refresh()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -291,23 +320,17 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar {
-                Category.entries.forEach { category ->
+                BottomTab.entries.forEach { tab ->
                     NavigationBarItem(
-                        selected = !showMore && uiState.category == category,
+                        selected = selectedTab == tab,
                         onClick = {
-                            showMore = false
-                            viewModel.setCategory(category)
+                            selectedTab = tab
+                            tab.toCategory()?.let { viewModel.setCategory(it) }
                         },
-                        icon = { Text(emojiFor(category)) },
-                        label = { Text(labelFor(category)) }
+                        icon = { Text(emojiFor(tab)) },
+                        label = { Text(labelFor(tab)) }
                     )
                 }
-                NavigationBarItem(
-                    selected = showMore,
-                    onClick = { showMore = true },
-                    icon = { Text("⚙️") },
-                    label = { Text(stringResource(R.string.tab_more)) }
-                )
             }
         }
     ) { padding ->
@@ -316,20 +339,23 @@ fun HomeScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            if (showMore) {
-                MorePanel(
+            when (selectedTab) {
+                BottomTab.MORE -> MorePanel(
                     selectedApp = uiState.selectedApp,
                     onSelectApp = viewModel::setPlayerApp,
                     onOpenReferral = onOpenReferral,
                     onOpenDevices = onOpenDevices,
-                    onOpenHistory = onOpenHistory,
                     onLogout = {
                         viewModel.logout()
                         onLoggedOut()
                     }
                 )
-            } else {
-                Column(Modifier.fillMaxSize()) {
+                BottomTab.HISTORY -> HistoryContent(
+                    uiState = historyState,
+                    onClick = historyViewModel::openRecommendation,
+                    onLongClick = historyViewModel::toggleWatchlist
+                )
+                else -> Column(Modifier.fillMaxSize()) {
                     if (uiState.category != Category.WATCHLIST) {
                         Button(
                             onClick = { viewModel.surpriseMe() },
@@ -369,15 +395,14 @@ fun HomeScreen(
     }
 }
 
-/** Pestaña "Más": lo que antes vivía en la barra superior — elegir la app
- * de destino, acceso a Referidos/Dispositivos, y cerrar sesión. */
+/** Pestaña "Más": elegir la app de destino, acceso a Referidos/Dispositivos,
+ * y cerrar sesión. */
 @Composable
 private fun MorePanel(
     selectedApp: PlayerApp,
     onSelectApp: (PlayerApp) -> Unit,
     onOpenReferral: () -> Unit,
     onOpenDevices: () -> Unit,
-    onOpenHistory: () -> Unit,
     onLogout: () -> Unit
 ) {
     var confirmingLogout by remember { mutableStateOf(false) }
@@ -400,10 +425,6 @@ private fun MorePanel(
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.more_devices_button))
-        }
-        Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = onOpenHistory, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.more_history_button))
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))

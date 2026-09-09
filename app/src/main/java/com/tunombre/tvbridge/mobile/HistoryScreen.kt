@@ -7,15 +7,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,10 +16,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -46,14 +40,18 @@ data class HistoryUiState(
  * email), agrupado por cercanía en el tiempo. Puerto directo de
  * HistoryRowsFragment en la app de TV: mismo agrupado por buckets, mismo
  * gesto (tocar abre, mantener pulsado alterna Mi lista) — a diferencia de
- * "Continuar viendo" en Home (que solo muestra los últimos N), esta
- * pantalla es el historial completo para consultarlo.
+ * "Continuar viendo" en Home (que solo muestra los últimos N), esta es la
+ * lista completa. Pestaña propia en la barra de abajo (ver HomeScreen),
+ * no una pantalla aparte con su propia barra superior.
  */
 class HistoryViewModel(app: Application) : AndroidViewModel(app) {
     private val context get() = getApplication<Application>()
 
     private val _uiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
+
+    private val _openFailed = MutableSharedFlow<Unit>()
+    val openFailed = _openFailed.asSharedFlow()
 
     fun refresh() {
         _uiState.update { it.copy(isLoading = true) }
@@ -70,12 +68,12 @@ class HistoryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun openRecommendation(rec: TmdbClient.TmdbRecommendation, onFailed: () -> Unit) {
+    fun openRecommendation(rec: TmdbClient.TmdbRecommendation) {
         viewModelScope.launch(Dispatchers.IO) {
             val candidate = TmdbCandidate(rec.tmdbId, rec.mediaPath, rec.title, year = null, posterPath = rec.posterPath, overview = rec.overview)
             val match = TmdbClient.resolveCandidate(context, candidate)
             withContext(Dispatchers.Main) {
-                if (match != null) StremioLauncher.open(context, match) else onFailed()
+                if (match != null) StremioLauncher.open(context, match) else _openFailed.emit(Unit)
             }
         }
     }
@@ -110,41 +108,31 @@ class HistoryViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Solo el contenido (sin Scaffold/barra superior propia) — se embebe
+ * directamente en el cuerpo de HomeScreen como una pestaña más, igual que
+ * Películas/Series/Mi lista. */
 @Composable
-fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = viewModel()) {
-    val uiState by viewModel.uiState.collectAsState()
-    LaunchedEffect(Unit) { viewModel.refresh() }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.history_title)) },
-                navigationIcon = { TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) } }
-            )
-        }
-    ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
-            when {
-                uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                uiState.buckets.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        stringResource(R.string.history_empty),
-                        modifier = Modifier.padding(32.dp),
-                        textAlign = TextAlign.Center
+fun HistoryContent(uiState: HistoryUiState, onClick: (TmdbClient.TmdbRecommendation) -> Unit, onLongClick: (TmdbClient.TmdbRecommendation) -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        when {
+            uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            uiState.buckets.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    stringResource(R.string.history_empty),
+                    modifier = Modifier.padding(32.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+            else -> LazyColumn {
+                items(uiState.buckets, key = { it.id }) { bucket ->
+                    RecommendationRow(
+                        title = bucket.title,
+                        items = bucket.items,
+                        onClick = onClick,
+                        onLongClick = onLongClick
                     )
-                }
-                else -> LazyColumn {
-                    items(uiState.buckets, key = { it.id }) { bucket ->
-                        RecommendationRow(
-                            title = bucket.title,
-                            items = bucket.items,
-                            onClick = { rec -> viewModel.openRecommendation(rec) {} },
-                            onLongClick = { rec -> viewModel.toggleWatchlist(rec) }
-                        )
-                    }
                 }
             }
         }
