@@ -82,4 +82,14 @@
     <string name="history_bucket_yesterday">Ayer</string>
     <string name="history_bucket_this_week">Esta semana</string>
     <string name="history_bucket_earlier">Antes</string>
+
+    <!-- Actualizaciones -->
+    <string name="update_notification_channel_name">Actualizaciones</string>
+    <string name="update_notification_downloading_title">Descargando actualización de TvRecommendationBridge</string>
+    <string name="update_notification_ready_title">Actualización lista</string>
+    <string name="update_notification_ready_text">La versión %1$s ya está descargada — toca para instalar</string>
+    <string name="more_check_update_button">🔄 Buscar actualizaciones</string>
+    <string name="update_check_up_to_date">Ya tienes la última versión (%1$s)</string>
+    <string name="update_check_downloading">Descargando actualización %1$s…</string>
+    <string name="update_check_network_error">No se pudo comprobar si hay actualizaciones — revisa tu conexión e inténtalo de nuevo</string>
 </resources>

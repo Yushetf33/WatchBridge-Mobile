@@ -9,6 +9,18 @@
          quedan en la última ficha abierta en vez de navegar a la nueva. -->
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
+    <!-- Para poder ofrecer instalar la APK de actualización descargada
+         (UpdateChecker) sin pasar por Play Store. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Para poder avisar con una notificación de que la actualización ya
+         se descargó y está lista para instalar (Android 13+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- UpdateChecker.startDownload pide VISIBILITY_HIDDEN al DownloadManager
+         (la propia app ya avisa cuando termina, no hace falta la notificación
+         genérica del sistema) — sin este permiso, DownloadManager.enqueue()
+         lanza SecurityException. -->
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+
     <!-- Sin esto, PackageManager.getPackageInfo() de cualquiera de estos
          paquetes puede devolver "no encontrado" aunque SÍ estén instalados
          (Android 11+ oculta la visibilidad de otras apps por defecto salvo
@@ -45,6 +57,33 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Recibe el aviso de DownloadManager cuando termina de bajar la
+             APK de una actualización (ver UpdateChecker/UpdateDownloadReceiver).
+             DOWNLOAD_COMPLETE lo emite com.android.providers.downloads, un
+             proceso/UID distinto del nuestro — sin exported="true" el sistema
+             bloquea la entrega en silencio. Seguro: UpdateChecker.onDownloadComplete
+             ya descarta cualquier id que no sea el nuestro. -->
+        <receiver
+            android:name=".UpdateDownloadReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Expone la APK descargada (carpeta privada de la app) al
+             instalador del sistema mediante un content:// URI, ya que un
+             file:// directo está bloqueado desde Android 7. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

@@ -84,4 +84,14 @@
     <string name="history_bucket_yesterday">Yesterday</string>
     <string name="history_bucket_this_week">This week</string>
     <string name="history_bucket_earlier">Earlier</string>
+
+    <!-- Updates -->
+    <string name="update_notification_channel_name">Updates</string>
+    <string name="update_notification_downloading_title">Downloading TvRecommendationBridge update</string>
+    <string name="update_notification_ready_title">Update ready</string>
+    <string name="update_notification_ready_text">Version %1$s is downloaded — tap to install</string>
+    <string name="more_check_update_button">🔄 Check for updates</string>
+    <string name="update_check_up_to_date">You\'re on the latest version (%1$s)</string>
+    <string name="update_check_downloading">Downloading update %1$s…</string>
+    <string name="update_check_network_error">Couldn\'t check for updates — check your connection and try again</string>
 </resources>

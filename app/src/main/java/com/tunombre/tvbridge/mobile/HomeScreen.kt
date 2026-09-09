@@ -38,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -109,6 +110,7 @@ data class HomeUiState(
 sealed class HomeEvent {
     object OpenFailed : HomeEvent()
     object SurpriseMeNotEnoughHistory : HomeEvent()
+    data class UpdateCheckResult(val outcome: UpdateChecker.CheckOutcome) : HomeEvent()
 }
 
 private const val CONTINUE_WATCHING_MAX = 15
@@ -267,6 +269,22 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    /** Botón manual "Buscar actualizaciones" en la pestaña Más — a
+     * diferencia del chequeo silencioso al abrir la app (ver TvBridgeApp),
+     * este ignora el límite de frecuencia y espera a instalar directamente
+     * si encuentra una versión nueva, ya que el usuario lo ha pedido en
+     * primer plano (mismo patrón que MainActivity.performCheckForUpdate en
+     * la TV). */
+    fun checkForUpdate() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val outcome = UpdateChecker.checkNow(context)
+            withContext(Dispatchers.Main) { _events.emit(HomeEvent.UpdateCheckResult(outcome)) }
+            if (outcome is UpdateChecker.CheckOutcome.DownloadStarted) {
+                UpdateChecker.awaitDownloadAndInstall(context)
+            }
+        }
+    }
 }
 
 /**
@@ -286,18 +304,27 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val historyState by historyViewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableStateOf(BottomTab.MOVIES) }
 
     val openFailedMessage = stringResource(R.string.home_open_failed)
     val notEnoughHistoryMessage = stringResource(R.string.home_not_enough_history)
+    val updateUpToDateMessage = stringResource(R.string.update_check_up_to_date, BuildConfig.VERSION_NAME)
+    val updateNetworkErrorMessage = stringResource(R.string.update_check_network_error)
     LaunchedEffect(Unit) { viewModel.refresh(); historyViewModel.refresh() }
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             val message = when (event) {
                 HomeEvent.OpenFailed -> openFailedMessage
                 HomeEvent.SurpriseMeNotEnoughHistory -> notEnoughHistoryMessage
+                is HomeEvent.UpdateCheckResult -> when (val outcome = event.outcome) {
+                    is UpdateChecker.CheckOutcome.UpToDate -> updateUpToDateMessage
+                    is UpdateChecker.CheckOutcome.DownloadStarted ->
+                        context.getString(R.string.update_check_downloading, outcome.version)
+                    is UpdateChecker.CheckOutcome.NetworkError -> updateNetworkErrorMessage
+                }
             }
             snackbarHostState.showSnackbar(message)
         }
@@ -345,6 +372,7 @@ fun HomeScreen(
                     onSelectApp = viewModel::setPlayerApp,
                     onOpenReferral = onOpenReferral,
                     onOpenDevices = onOpenDevices,
+                    onCheckForUpdate = viewModel::checkForUpdate,
                     onLogout = {
                         viewModel.logout()
                         onLoggedOut()
@@ -403,6 +431,7 @@ private fun MorePanel(
     onSelectApp: (PlayerApp) -> Unit,
     onOpenReferral: () -> Unit,
     onOpenDevices: () -> Unit,
+    onCheckForUpdate: () -> Unit,
     onLogout: () -> Unit
 ) {
     var confirmingLogout by remember { mutableStateOf(false) }
@@ -425,6 +454,10 @@ private fun MorePanel(
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.more_devices_button))
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = onCheckForUpdate, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.more_check_update_button))
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
