@@ -138,6 +138,13 @@ object RecommendationHistory {
         }
     }
 
+    /** Borra la caché local (no toca el backend) — ver Watchlist.clearLocal,
+     * mismo motivo: al cerrar sesión, para no arrastrar historial de la
+     * cuenta anterior. */
+    fun clearLocal(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().remove(KEY_HISTORY).apply()
+    }
+
     /** Historial local fusionado con el que el backend tiene guardado para
      * este email (lo visto en cualquier otro dispositivo vinculado) — ante
      * el mismo título en ambos lados, gana el que tenga [OpenedTitle.watchedAt]

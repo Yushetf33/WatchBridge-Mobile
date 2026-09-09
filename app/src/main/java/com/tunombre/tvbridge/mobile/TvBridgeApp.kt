@@ -42,7 +42,12 @@ fun TvBridgeApp() {
                 composable(Routes.HOME) {
                     HomeScreen(
                         onOpenReferral = { navController.navigate(Routes.REFERRAL) },
-                        onOpenDevices = { navController.navigate(Routes.DEVICES) }
+                        onOpenDevices = { navController.navigate(Routes.DEVICES) },
+                        onLoggedOut = {
+                            navController.navigate(Routes.VERIFY) {
+                                popUpTo(0)
+                            }
+                        }
                     )
                 }
                 composable(Routes.REFERRAL) {

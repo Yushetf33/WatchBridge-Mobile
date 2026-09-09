@@ -90,6 +90,14 @@ object Watchlist {
      * que volver a pedir la fusión con el backend (ver [fetchMerged]). */
     fun getLocal(context: Context): List<WatchlistItem> = getAllLocal(context)
 
+    /** Borra la caché local (no toca el backend) — usado al cerrar sesión
+     * en el móvil (ver LicenseManager.clear/DevicesScreen) para que probar
+     * con una cuenta distinta no arrastre "Mi lista" de la anterior antes
+     * de que [fetchMerged] la reemplace por la de la nueva cuenta. */
+    fun clearLocal(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().remove(KEY_WATCHLIST).apply()
+    }
+
     private fun getAllLocal(context: Context): List<WatchlistItem> {
         val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_WATCHLIST, null) ?: return emptyList()

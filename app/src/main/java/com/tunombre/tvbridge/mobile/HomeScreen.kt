@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -25,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -141,6 +144,17 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         _uiState.update { it.copy(selectedApp = app) }
     }
 
+    /** Solo borra estado LOCAL (email verificado + cachés de historial/Mi
+     * lista) — a diferencia de "eliminar este dispositivo" en
+     * DevicesScreen, NO desvincula el dispositivo del backend, así que no
+     * gasta ni libera ningún hueco de la cuota de dispositivos. Pensado
+     * para poder probar con otra cuenta sin tener que desvincular nada. */
+    fun logout() {
+        LicenseManager.clear(context)
+        Watchlist.clearLocal(context)
+        RecommendationHistory.clearLocal(context)
+    }
+
     private fun rebuildRows(category: Category) {
         val rows = mutableListOf<RowUi>()
         if (category == Category.WATCHLIST) {
@@ -242,6 +256,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 fun HomeScreen(
     onOpenReferral: () -> Unit,
     onOpenDevices: () -> Unit,
+    onLoggedOut: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -301,7 +316,11 @@ fun HomeScreen(
                     selectedApp = uiState.selectedApp,
                     onSelectApp = viewModel::setPlayerApp,
                     onOpenReferral = onOpenReferral,
-                    onOpenDevices = onOpenDevices
+                    onOpenDevices = onOpenDevices,
+                    onLogout = {
+                        viewModel.logout()
+                        onLoggedOut()
+                    }
                 )
             } else {
                 Column(Modifier.fillMaxSize()) {
@@ -345,14 +364,17 @@ fun HomeScreen(
 }
 
 /** Pestaña "Más": lo que antes vivía en la barra superior — elegir la app
- * de destino, y acceso a Referidos/Dispositivos. */
+ * de destino, acceso a Referidos/Dispositivos, y cerrar sesión. */
 @Composable
 private fun MorePanel(
     selectedApp: PlayerApp,
     onSelectApp: (PlayerApp) -> Unit,
     onOpenReferral: () -> Unit,
-    onOpenDevices: () -> Unit
+    onOpenDevices: () -> Unit,
+    onLogout: () -> Unit
 ) {
+    var confirmingLogout by remember { mutableStateOf(false) }
+
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Text("Abrir recomendaciones en", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Text(
@@ -372,6 +394,33 @@ private fun MorePanel(
         OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
             Text("📱 Dispositivos")
         }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
+
+        OutlinedButton(
+            onClick = { confirmingLogout = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        ) {
+            Text("🚪 Cerrar sesión")
+        }
+    }
+
+    if (confirmingLogout) {
+        AlertDialog(
+            onDismissRequest = { confirmingLogout = false },
+            title = { Text("¿Cerrar sesión?") },
+            text = { Text("Solo se borra este dispositivo (el email guardado aquí, y el historial/Mi lista en caché) — no se desvincula de tu cuenta ni gastas ningún hueco de dispositivo. Puedes volver a verificar con el mismo email u otro distinto.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingLogout = false
+                    onLogout()
+                }) { Text("Cerrar sesión") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingLogout = false }) { Text("Cancelar") }
+            }
+        )
     }
 }
 
