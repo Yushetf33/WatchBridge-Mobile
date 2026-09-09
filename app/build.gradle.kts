@@ -95,6 +95,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.foundation:foundation")
     debugImplementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.activity:activity-compose:1.11.0")
@@ -103,6 +104,10 @@ dependencies {
     implementation("androidx.browser:browser:1.9.0")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Carga de pósters en las tarjetas de Compose (la app de TV usa su
+    // propio PosterLoader con bitmaps a mano para Leanback; aquí no hace
+    // falta reinventarlo, Coil ya se integra directo con Compose).
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

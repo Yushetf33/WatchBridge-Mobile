@@ -42,17 +42,13 @@ object StremioLauncher {
         ReferralManager.reportActivationIfNeeded(service)
 
         // Base del historial para "Recomendado para ti" — se registra aquí,
-        // en el único punto por el que pasan todos los caminos de apertura,
-        // en vez de en cada uno por separado. Detrás de su propio ajuste
-        // (opt-in, ver Preferences): si está desactivado no hace falta ni
-        // guardar historial ni tocar TMDb de más en segundo plano. A
-        // diferencia de la app de TV, aquí no hay fila de canal de inicio
-        // que refrescar (eso es TvProvider, solo tiene sentido en Android
-        // TV) — el propio HomeScreen recalcula al entrar/reanudar.
-        if (Preferences.isRecommendationsEnabled(service)) {
-            val mediaPath = if (match.type == MediaType.SERIES) "tv" else "movie"
-            RecommendationHistory.record(service, match.tmdbId, mediaPath, match.title, match.posterPath, match.overview)
-        }
+        // en el único punto por el que pasan todos los caminos de apertura.
+        // A diferencia de la app de TV (donde esto es un extra opt-in sobre
+        // su función principal de redirigir clics del launcher), en esta
+        // app ES la función principal, así que siempre se registra, sin
+        // interruptor de por medio.
+        val mediaPath = if (match.type == MediaType.SERIES) "tv" else "movie"
+        RecommendationHistory.record(service, match.tmdbId, mediaPath, match.title, match.posterPath, match.overview)
 
         if (tryOpenInPersonalJellyfin(service, match)) return
         if (tryOpenInPlexCatalog(service, match)) return
