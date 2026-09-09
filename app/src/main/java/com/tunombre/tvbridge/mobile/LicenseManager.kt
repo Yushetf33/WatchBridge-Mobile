@@ -1,0 +1,288 @@
+package com.tunombre.tvbridge.mobile
+
+import android.content.Context
+import android.os.Build
+import android.provider.Settings
+import android.util.Log
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
+
+/** Resultado de una verificación (en vivo o desde caché) de la suscripción. */
+sealed class VerifyResult {
+    /** [trialEndsAt] es null si no está en periodo de prueba (lifetime, plan
+     * antiguo, o email exento) — solo viene relleno durante el trial.
+     * [status] es el estado devuelto por el backend ("lifetime", "active" o
+     * "trialing"), para poder distinguir lifetime de una suscripción normal
+     * activa aunque ninguna de las dos tenga trialEndsAt. */
+    data class Valid(val trialEndsAt: Long? = null, val status: String? = null) : VerifyResult()
+    data class Invalid(val reason: String, val retryInDays: Int? = null) : VerifyResult()
+    object NetworkError : VerifyResult()
+}
+
+/**
+ * Comprueba contra el backend (ver TvRecommendationBridge-backend/) si el
+ * email guardado tiene una suscripción activa, y cachea el resultado
+ * localmente para que el servicio de accesibilidad no dependa de tener
+ * internet en cada clic.
+ *
+ * La verificación en caché es válida durante [GRACE_PERIOD_MS]: pasado ese
+ * tiempo sin poder confirmar una suscripción activa, se considera inválida
+ * aunque la última comprobación real hubiese sido positiva.
+ */
+object LicenseManager {
+
+    private const val TAG = "LicenseManager"
+    private const val PREFS_NAME = "tvbridge_license"
+    private const val KEY_EMAIL = "email"
+    private const val KEY_LAST_OK = "last_ok"
+    private const val KEY_LAST_CHECK_AT = "last_check_at"
+    private const val KEY_TRIAL_ENDS_AT = "trial_ends_at"
+    private const val KEY_LICENSE_STATUS = "license_status"
+    private const val KEY_DAY_BEFORE_SHOWN_FOR_ENDS_AT = "day_before_shown_for_ends_at"
+    private const val KEY_HOURS_BEFORE_SHOWN_FOR_ENDS_AT = "hours_before_shown_for_ends_at"
+    private const val KEY_HOUR_BEFORE_SHOWN_FOR_ENDS_AT = "hour_before_shown_for_ends_at"
+
+    private val GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000L // 3 días
+    private val DAY_BEFORE_THRESHOLD_MS = TimeUnit.HOURS.toMillis(24)
+    private val HOURS_BEFORE_THRESHOLD_MS = TimeUnit.HOURS.toMillis(3)
+    private val HOUR_BEFORE_THRESHOLD_MS = TimeUnit.HOURS.toMillis(1)
+
+    private val httpClient = sharedHttpClient
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+
+    fun getSavedEmail(context: Context): String? =
+        prefs(context).getString(KEY_EMAIL, null)
+
+    fun getDeviceId(context: Context): String =
+        Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown-device"
+
+    /** Nombre legible del dispositivo (fabricante + modelo), para que el
+     * usuario pueda identificarlo en la pantalla "Gestionar dispositivos". */
+    fun getDeviceName(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+
+    /** Borra el email guardado y el estado de verificación de este
+     * dispositivo (p.ej. tras eliminarlo a sí mismo en "Gestionar
+     * dispositivos"), forzando a verificar de nuevo antes de seguir usándolo. */
+    fun clear(context: Context) {
+        prefs(context).edit().clear().apply()
+    }
+
+    /** true si la última verificación con éxito sigue dentro del periodo de gracia. */
+    fun isLikelyValid(context: Context): Boolean {
+        val prefs = prefs(context)
+        val lastOk = prefs.getBoolean(KEY_LAST_OK, false)
+        if (!lastOk) return false
+        val lastCheckAt = prefs.getLong(KEY_LAST_CHECK_AT, 0L)
+        return (System.currentTimeMillis() - lastCheckAt) < GRACE_PERIOD_MS
+    }
+
+    /** Fecha (epoch ms) en la que termina el trial en curso, o null si no
+     * hay trial activo (lifetime, plan antiguo, o directamente sin
+     * suscripción) — viene de la última verificación con el backend, ver
+     * [verifyNow]. */
+    fun getTrialEndsAt(context: Context): Long? {
+        val value = prefs(context).getLong(KEY_TRIAL_ENDS_AT, -1L)
+        return value.takeIf { it > 0 }
+    }
+
+    /** true si hay una fecha de fin de trial guardada y ya ha pasado —
+     * distinto de [isLikelyValid], que solo mira si la última verificación
+     * fue positiva dentro del periodo de gracia. Un trial recién expirado
+     * puede seguir dando isLikelyValid=true unos días más por el periodo de
+     * gracia, así que esto es lo que hay que mirar para decidir si mostrar
+     * el aviso de "tu prueba ha terminado". */
+    fun isTrialExpired(context: Context): Boolean {
+        val endsAt = getTrialEndsAt(context) ?: return false
+        return System.currentTimeMillis() >= endsAt
+    }
+
+    /** Las tres etapas de aviso de "tu prueba acaba pronto", en el mismo
+     * orden que el trial las va cruzando. */
+    enum class TrialReminderStage { DAY_BEFORE, HOURS_BEFORE, HOUR_BEFORE }
+
+    /** Etapa de aviso que toca mostrar ahora mismo (justo al pulsar una
+     * recomendación, ver TvRecommendationAccessibilityService) — la más
+     * cercana al fin que ya se ha cruzado y que todavía no se ha mostrado
+     * NINGUNA vez para este trial en concreto (cada etapa se muestra una
+     * sola vez). Null si no hay trial, si el trial ya terminó del todo
+     * (eso lo cubre [isTrialExpired] aparte, que sigue bloqueando con
+     * TrialExpiredActivity), o si ninguna etapa nueva aplica. */
+    fun dueTrialReminderStage(context: Context): TrialReminderStage? {
+        val endsAt = getTrialEndsAt(context) ?: return null
+        val remaining = endsAt - System.currentTimeMillis()
+        if (remaining <= 0) return null
+
+        val stage = when {
+            remaining <= HOUR_BEFORE_THRESHOLD_MS -> TrialReminderStage.HOUR_BEFORE
+            remaining <= HOURS_BEFORE_THRESHOLD_MS -> TrialReminderStage.HOURS_BEFORE
+            remaining <= DAY_BEFORE_THRESHOLD_MS -> TrialReminderStage.DAY_BEFORE
+            else -> return null
+        }
+        val alreadyShownForEndsAt = prefs(context).getLong(shownKeyFor(stage), -1L)
+        return stage.takeIf { alreadyShownForEndsAt != endsAt }
+    }
+
+    /** Recuerda que [stage] ya se mostró para el trial actual, para no
+     * repetirlo en cada recomendación que se pulse durante esa misma
+     * ventana de tiempo. */
+    fun markTrialReminderShown(context: Context, stage: TrialReminderStage) {
+        val endsAt = getTrialEndsAt(context) ?: return
+        prefs(context).edit().putLong(shownKeyFor(stage), endsAt).apply()
+    }
+
+    private fun shownKeyFor(stage: TrialReminderStage) = when (stage) {
+        TrialReminderStage.DAY_BEFORE -> KEY_DAY_BEFORE_SHOWN_FOR_ENDS_AT
+        TrialReminderStage.HOURS_BEFORE -> KEY_HOURS_BEFORE_SHOWN_FOR_ENDS_AT
+        TrialReminderStage.HOUR_BEFORE -> KEY_HOUR_BEFORE_SHOWN_FOR_ENDS_AT
+    }
+
+    /** "lifetime", "active" o "trialing" según la última verificación con
+     * éxito, o null si todavía no se ha verificado nunca. */
+    fun getLicenseStatus(context: Context): String? =
+        prefs(context).getString(KEY_LICENSE_STATUS, null)
+
+    /**
+     * Verificación SÍNCRONA y bloqueante contra el backend. Llamar siempre
+     * desde un hilo de fondo.
+     */
+    fun verifyNow(context: Context, email: String): VerifyResult {
+        val apiUrl = BuildConfig.LICENSE_API_URL
+        if (apiUrl.isBlank()) {
+            Log.w(TAG, "LICENSE_API_URL vacía: añade LICENSE_API_URL en local.properties")
+            return VerifyResult.NetworkError
+        }
+
+        val deviceId = getDeviceId(context)
+        val body = JSONObject().apply {
+            put("email", email)
+            put("deviceId", deviceId)
+            put("deviceName", getDeviceName())
+            // Distingue este dispositivo móvil de un TV en el backend (ver
+            // plan sección 3): la cuota de dispositivos y el conteo de
+            // "boundDevices" se filtran por deviceType, así que un TV y un
+            // móvil del mismo email no compiten por el mismo cupo.
+            put("deviceType", "mobile")
+        }.toString().toRequestBody(jsonMediaType)
+
+        val request = Request.Builder()
+            .url("${apiUrl.trimEnd('/')}/api/verify")
+            .post(body)
+            .build()
+
+        val result = try {
+            httpClient.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string()
+                if (responseBody == null) VerifyResult.NetworkError else parseVerifyResponse(JSONObject(responseBody))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error verificando suscripción", e)
+            VerifyResult.NetworkError
+        }
+
+        persistResult(context, email, result)
+        return result
+    }
+
+    /**
+     * Sondeo SIN email — pregunta "¿ya me reclamó algún webhook de
+     * Stripe?" (ver TvRecommendationBridge-backend/api/stripe-webhook.js).
+     * Se llama en bucle mientras se muestra el QR de pago
+     * (SubscriptionActivity), antes de que el usuario haya tecleado nada:
+     * el QR lleva ?client_reference_id=<deviceId>, así que en cuanto
+     * completa el pago/trial en el Payment Link el backend ya sabe qué
+     * dispositivo vincular sin más ayuda.
+     *
+     * Devuelve null mientras no haya nada que reclamar todavía (caso
+     * normal, hay que seguir sondeando) — a diferencia de [verifyNow],
+     * NO persiste nada en ese caso, porque no se ha verificado nada de
+     * verdad.
+     */
+    fun pollForClaim(context: Context): VerifyResult? {
+        val apiUrl = BuildConfig.LICENSE_API_URL
+        if (apiUrl.isBlank()) return null
+
+        val body = JSONObject().apply {
+            put("deviceId", getDeviceId(context))
+            put("deviceName", getDeviceName())
+            // Ver comentario en verifyNow: mismo campo, mismo motivo.
+            put("deviceType", "mobile")
+        }.toString().toRequestBody(jsonMediaType)
+
+        val request = Request.Builder()
+            .url("${apiUrl.trimEnd('/')}/api/verify")
+            .post(body)
+            .build()
+
+        return try {
+            httpClient.newCall(request).execute().use { response ->
+                val json = JSONObject(response.body?.string() ?: return null)
+                if (json.optString("reason") == "no_pending_verification") {
+                    Log.d(TAG, "pollForClaim: nada pendiente todavía")
+                    return null
+                }
+                val email = json.optString("email").takeIf { it.isNotBlank() } ?: return null
+                val result = parseVerifyResponse(json)
+                Log.d(TAG, "pollForClaim: claim resuelto para $email -> $result")
+                persistResult(context, email, result)
+                result
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sondeando verificación pendiente", e)
+            null
+        }
+    }
+
+    private fun parseVerifyResponse(json: JSONObject): VerifyResult {
+        if (!json.optBoolean("ok", false)) {
+            return VerifyResult.Invalid(
+                reason = json.optString("reason", "unknown"),
+                retryInDays = json.optInt("retryInDays", -1).takeIf { it >= 0 }
+            )
+        }
+        val trialEndsAt = if (json.isNull("trialEndsAt")) null else json.optLong("trialEndsAt")
+        val status = if (json.isNull("status")) null else json.optString("status")
+        return VerifyResult.Valid(trialEndsAt = trialEndsAt?.takeIf { it > 0 }, status = status)
+    }
+
+    private fun persistResult(context: Context, email: String, result: VerifyResult) {
+        val editor = prefs(context).edit()
+        editor.putString(KEY_EMAIL, email)
+        when (result) {
+            is VerifyResult.Valid -> {
+                editor.putBoolean(KEY_LAST_OK, true)
+                editor.putLong(KEY_LAST_CHECK_AT, System.currentTimeMillis())
+                if (result.status != null) {
+                    editor.putString(KEY_LICENSE_STATUS, result.status)
+                } else {
+                    editor.remove(KEY_LICENSE_STATUS)
+                }
+                if (result.trialEndsAt != null) {
+                    editor.putLong(KEY_TRIAL_ENDS_AT, result.trialEndsAt)
+                    TrialReminderScheduler.scheduleFor(context, result.trialEndsAt)
+                } else {
+                    // No es un trial (o ya se convirtió a lifetime) — no
+                    // dejamos una fecha vieja que dispare avisos de más, ni
+                    // avisos ya programados de cuando sí lo era.
+                    editor.remove(KEY_TRIAL_ENDS_AT)
+                    TrialReminderScheduler.cancelAll(context)
+                }
+            }
+            is VerifyResult.Invalid -> {
+                editor.putBoolean(KEY_LAST_OK, false)
+                editor.putLong(KEY_LAST_CHECK_AT, System.currentTimeMillis())
+            }
+            is VerifyResult.NetworkError -> {
+                // No tocamos KEY_LAST_OK/KEY_LAST_CHECK_AT: un fallo de red no
+                // debe invalidar una verificación previa válida antes de que
+                // expire su periodo de gracia.
+            }
+        }
+        editor.apply()
+    }
+
+    private fun prefs(context: Context) =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+}
