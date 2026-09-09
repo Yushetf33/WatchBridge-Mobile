@@ -73,7 +73,15 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Mismo mecanismo que la app de TV: R8 en modo shrink+ofuscar,
+            // para dificultar clonar/decompilar la app tal cual.
+            optimization {
+                enable = true
+            }
+            // Solo firma con la config de release si local.properties trae
+            // la keystore configurada; si no, deja el build sin firmar en
+            // vez de fallar (para que `assembleDebug` siga funcionando en
+            // checkouts nuevos sin keystore).
             if (localProperties.getProperty("RELEASE_STORE_FILE") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
