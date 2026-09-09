@@ -5,34 +5,39 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
@@ -57,6 +62,12 @@ private fun labelFor(category: Category) = when (category) {
     Category.MOVIES -> "Películas"
     Category.SERIES -> "Series"
     Category.WATCHLIST -> "Mi lista"
+}
+
+private fun emojiFor(category: Category) = when (category) {
+    Category.MOVIES -> "🎬"
+    Category.SERIES -> "📺"
+    Category.WATCHLIST -> "🔖"
 }
 
 data class RowUi(
@@ -220,7 +231,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Sin barra superior con el nombre de la app (desperdiciaba una fila
+ * entera solo para eso) — las pestañas viven abajo, al estilo
+ * Instagram/TikTok, con Películas/Series/Mi lista como contenido
+ * principal y una cuarta pestaña "Más" para lo que antes vivía en la
+ * barra superior (selector de app de destino, Referidos, Dispositivos).
+ */
 @Composable
 fun HomeScreen(
     onOpenReferral: () -> Unit,
@@ -230,6 +247,7 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState = remember { SnackbarHostState() }
+    var showMore by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.refresh() }
     LaunchedEffect(Unit) {
@@ -251,63 +269,74 @@ fun HomeScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("TvRecommendationBridge") },
-                actions = {
-                    TextButton(onClick = onOpenReferral) { Text("Referidos") }
-                    TextButton(onClick = onOpenDevices) { Text("Dispositivos") }
+        bottomBar = {
+            NavigationBar {
+                Category.entries.forEach { category ->
+                    NavigationBarItem(
+                        selected = !showMore && uiState.category == category,
+                        onClick = {
+                            showMore = false
+                            viewModel.setCategory(category)
+                        },
+                        icon = { Text(emojiFor(category)) },
+                        label = { Text(labelFor(category)) }
+                    )
                 }
-            )
+                NavigationBarItem(
+                    selected = showMore,
+                    onClick = { showMore = true },
+                    icon = { Text("⚙️") },
+                    label = { Text("Más") }
+                )
+            }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            TabRow(selectedTabIndex = uiState.category.ordinal) {
-                Category.entries.forEach { category ->
-                    Tab(
-                        selected = uiState.category == category,
-                        onClick = { viewModel.setCategory(category) },
-                        text = { Text(labelFor(category)) }
-                    )
-                }
-            }
-
-            PlayerAppSelector(selected = uiState.selectedApp, onSelect = viewModel::setPlayerApp)
-
-            if (uiState.category != Category.WATCHLIST) {
-                Button(
-                    onClick = { viewModel.surpriseMe() },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text("Sorpréndeme")
-                }
-            }
-
-            when {
-                uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                uiState.rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "Todavía no hay nada que recomendar — abre algún título para empezar",
-                        modifier = Modifier.padding(32.dp)
-                    )
-                }
-                else -> LazyColumn {
-                    items(uiState.rows, key = { it.id }) { row ->
-                        RecommendationRow(
-                            title = row.title,
-                            items = row.items,
-                            onClick = viewModel::openRecommendation,
-                            onLongClick = { rec ->
-                                if (row.isContinueWatching) viewModel.removeFromContinueWatching(rec)
-                                else viewModel.toggleWatchlist(rec)
+            if (showMore) {
+                MorePanel(
+                    selectedApp = uiState.selectedApp,
+                    onSelectApp = viewModel::setPlayerApp,
+                    onOpenReferral = onOpenReferral,
+                    onOpenDevices = onOpenDevices
+                )
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    if (uiState.category != Category.WATCHLIST) {
+                        Button(
+                            onClick = { viewModel.surpriseMe() },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        ) {
+                            Text("🎲 Sorpréndeme")
+                        }
+                    }
+                    when {
+                        uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                        uiState.rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                "Todavía no hay nada que recomendar — abre algún título para empezar",
+                                modifier = Modifier.padding(32.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        else -> LazyColumn {
+                            items(uiState.rows, key = { it.id }) { row ->
+                                RecommendationRow(
+                                    title = row.title,
+                                    items = row.items,
+                                    onClick = viewModel::openRecommendation,
+                                    onLongClick = { rec ->
+                                        if (row.isContinueWatching) viewModel.removeFromContinueWatching(rec)
+                                        else viewModel.toggleWatchlist(rec)
+                                    }
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -315,13 +344,41 @@ fun HomeScreen(
     }
 }
 
-/** Elegir a qué app se abre cada recomendación — no existe un equivalente
- * de "Ajustes" completo todavía (ver plan), así que el selector vive aquí
- * mismo, siempre visible en vez de escondido en otra pantalla. */
+/** Pestaña "Más": lo que antes vivía en la barra superior — elegir la app
+ * de destino, y acceso a Referidos/Dispositivos. */
+@Composable
+private fun MorePanel(
+    selectedApp: PlayerApp,
+    onSelectApp: (PlayerApp) -> Unit,
+    onOpenReferral: () -> Unit,
+    onOpenDevices: () -> Unit
+) {
+    Column(Modifier.fillMaxSize().padding(20.dp)) {
+        Text("Abrir recomendaciones en", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+            "La app donde se abre cada título que toques",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+        )
+        PlayerAppSelector(selected = selectedApp, onSelect = onSelectApp)
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
+
+        OutlinedButton(onClick = onOpenReferral, modifier = Modifier.fillMaxWidth()) {
+            Text("🎁 Referidos")
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
+            Text("📱 Dispositivos")
+        }
+    }
+}
+
 @Composable
 private fun PlayerAppSelector(selected: PlayerApp, onSelect: (PlayerApp) -> Unit) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+        contentPadding = PaddingValues(vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(PlayerApp.entries) { app ->
