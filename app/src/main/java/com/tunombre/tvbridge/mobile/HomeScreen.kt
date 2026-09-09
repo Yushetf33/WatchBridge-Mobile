@@ -256,6 +256,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 fun HomeScreen(
     onOpenReferral: () -> Unit,
     onOpenDevices: () -> Unit,
+    onOpenHistory: () -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
@@ -317,6 +318,7 @@ fun HomeScreen(
                     onSelectApp = viewModel::setPlayerApp,
                     onOpenReferral = onOpenReferral,
                     onOpenDevices = onOpenDevices,
+                    onOpenHistory = onOpenHistory,
                     onLogout = {
                         viewModel.logout()
                         onLoggedOut()
@@ -371,6 +373,7 @@ private fun MorePanel(
     onSelectApp: (PlayerApp) -> Unit,
     onOpenReferral: () -> Unit,
     onOpenDevices: () -> Unit,
+    onOpenHistory: () -> Unit,
     onLogout: () -> Unit
 ) {
     var confirmingLogout by remember { mutableStateOf(false) }
@@ -393,6 +396,10 @@ private fun MorePanel(
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
             Text("📱 Dispositivos")
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = onOpenHistory, modifier = Modifier.fillMaxWidth()) {
+            Text("📜 Historial")
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
