@@ -1,6 +1,87 @@
 <resources>
-    <string name="app_name">TvBridge Mobile</string>
+    <string name="app_name">TvRecommendationBridge</string>
     <!-- Usado por StremioLauncher.openPlayStoreListing (copiado tal cual del
          texto de la app de TV). -->
     <string name="target_app_not_installed">%1$s isn\'t installed — opening its Play Store page</string>
+
+    <!-- Verify -->
+    <string name="verify_intro">Same email you used (or will use) on the TV — history and recommendations are shared across all your devices.</string>
+    <string name="verify_have_account">I already have an account</string>
+    <string name="verify_email_label">Email</string>
+    <string name="verify_checking">Verifying…</string>
+    <string name="verify_button">Verify</string>
+    <string name="verify_invalid_email">Enter a valid email</string>
+    <string name="verify_error_device_mismatch">You already have the maximum number of mobile devices linked to this email — try again in %1$d days, or remove one from \"Devices\"</string>
+    <string name="verify_error_trial_already_used">This device already used its free trial before</string>
+    <string name="verify_error_not_subscribed">That email doesn\'t have an active subscription</string>
+    <string name="verify_error_generic">Couldn\'t verify — try again</string>
+    <string name="verify_error_network">Couldn\'t verify (check your connection) and try again</string>
+    <string name="verify_no_account_yet">Don\'t have an account yet?</string>
+    <string name="verify_start_trial">Start 2-day free trial</string>
+    <string name="verify_buy_lifetime">Buy lifetime — €4.99</string>
+    <string name="verify_waiting_payment">Waiting for payment confirmation…</string>
+
+    <!-- Home -->
+    <string name="tab_movies">Movies</string>
+    <string name="tab_series">Series</string>
+    <string name="tab_watchlist">My list</string>
+    <string name="tab_more">More</string>
+    <string name="row_continue_watching">Continue watching</string>
+    <string name="row_upcoming_episodes">Upcoming episodes</string>
+    <string name="row_top_picks">Recommended for you</string>
+    <string name="row_because_you_watched">Because you watched %1$s</string>
+    <string name="surprise_me_button">🎲 Surprise me</string>
+    <string name="home_open_failed">Couldn\'t open that title — check your subscription or try again</string>
+    <string name="home_not_enough_history">Not enough history yet — open a few titles first</string>
+    <string name="home_empty_state">No recommendations yet — open a few titles first</string>
+    <string name="more_open_in_title">Open recommendations in</string>
+    <string name="more_open_in_subtitle">The app each title opens in when you tap it</string>
+    <string name="more_referral_button">🎁 Referrals</string>
+    <string name="more_devices_button">📱 Devices</string>
+    <string name="more_history_button">🕒 History</string>
+    <string name="more_logout_button">🚪 Log out</string>
+    <string name="logout_confirm_title">Log out?</string>
+    <string name="logout_confirm_body">Only this device is cleared (the email saved here, plus cached history/My list) — your account isn\'t unlinked and you don\'t lose a device slot. You can verify again with the same email or a different one.</string>
+    <string name="logout_confirm_button">Log out</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_back">Back</string>
+
+    <!-- Referral -->
+    <string name="referral_title">Referrals</string>
+    <string name="referral_your_code">Your code</string>
+    <string name="referral_lifetime_unlocked">🎉 You unlocked Lifetime for free!</string>
+    <string name="referral_progress">%1$d/%2$d friends have bought Lifetime</string>
+    <string name="referral_explanation">Share your code. When your friend actually opens a recommendation, you get +4 trial days; if they buy Lifetime, +15 more days.</string>
+    <string name="referral_verify_first">Verify your email to get your code</string>
+    <string name="referral_friend_prompt">Did a friend invite you?</string>
+    <string name="referral_friend_code_label">Their code</string>
+    <string name="referral_apply_button">Apply code</string>
+    <string name="referral_status_checking">Checking…</string>
+    <string name="referral_status_applied">Code applied — thanks!</string>
+    <string name="referral_status_invalid_code">That code doesn\'t look right</string>
+    <string name="referral_status_own_code">You can\'t use your own code</string>
+    <string name="referral_status_already_referred">This device already used a referral code</string>
+    <string name="referral_status_limit_reached">That code has already been used the maximum number of times</string>
+    <string name="referral_status_not_verified">Verify your email first</string>
+    <string name="referral_status_error">Couldn\'t reach the server, try again later</string>
+
+    <!-- Devices -->
+    <string name="devices_title">Devices</string>
+    <string name="devices_verify_first">Verify your subscription first</string>
+    <string name="devices_empty">No devices found</string>
+    <string name="devices_unknown_name">Unknown device</string>
+    <string name="devices_type_mobile">Mobile/Tablet</string>
+    <string name="devices_type_tv">TV</string>
+    <string name="devices_row_subtitle">%1$s · linked %2$s</string>
+    <string name="devices_row_subtitle_this_device">%1$s · linked %2$s · this device</string>
+    <string name="devices_remove_button">Remove</string>
+    <string name="devices_confirm_remove_title">Remove this device?</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_empty">Nothing here yet — what you watch will show up automatically</string>
+    <string name="history_bucket_today">Today</string>
+    <string name="history_bucket_yesterday">Yesterday</string>
+    <string name="history_bucket_this_week">This week</string>
+    <string name="history_bucket_earlier">Earlier</string>
 </resources>

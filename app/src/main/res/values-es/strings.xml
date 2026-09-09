@@ -1,0 +1,85 @@
+<resources>
+    <string name="app_name">TvRecommendationBridge</string>
+    <string name="target_app_not_installed">%1$s no está instalada — abriendo su ficha en la Play Store</string>
+
+    <!-- Verify -->
+    <string name="verify_intro">Mismo email que usaste (o vas a usar) en la TV — el historial y las recomendaciones se comparten entre todos tus dispositivos.</string>
+    <string name="verify_have_account">Ya tengo cuenta</string>
+    <string name="verify_email_label">Email</string>
+    <string name="verify_checking">Verificando…</string>
+    <string name="verify_button">Verificar</string>
+    <string name="verify_invalid_email">Introduce un email válido</string>
+    <string name="verify_error_device_mismatch">Ya tienes el máximo de dispositivos móviles vinculados a este email — vuelve a intentarlo en %1$d días, o quita uno desde \"Dispositivos\"</string>
+    <string name="verify_error_trial_already_used">Este dispositivo ya usó su prueba gratis antes</string>
+    <string name="verify_error_not_subscribed">No hay ninguna suscripción activa con ese email</string>
+    <string name="verify_error_generic">No se pudo verificar — inténtalo de nuevo</string>
+    <string name="verify_error_network">No se pudo verificar (revisa tu conexión) e inténtalo de nuevo</string>
+    <string name="verify_no_account_yet">¿Todavía no tienes cuenta?</string>
+    <string name="verify_start_trial">Empezar prueba gratis de 2 días</string>
+    <string name="verify_buy_lifetime">Comprar de por vida — 4,99 €</string>
+    <string name="verify_waiting_payment">Esperando confirmación del pago…</string>
+
+    <!-- Home -->
+    <string name="tab_movies">Películas</string>
+    <string name="tab_series">Series</string>
+    <string name="tab_watchlist">Mi lista</string>
+    <string name="tab_more">Más</string>
+    <string name="row_continue_watching">Continuar viendo</string>
+    <string name="row_upcoming_episodes">Próximos episodios</string>
+    <string name="row_top_picks">Recomendado para ti</string>
+    <string name="row_because_you_watched">Porque viste %1$s</string>
+    <string name="surprise_me_button">🎲 Sorpréndeme</string>
+    <string name="home_open_failed">No se pudo abrir ese título — comprueba tu suscripción o vuelve a intentarlo</string>
+    <string name="home_not_enough_history">Todavía no hay suficiente historial para esto</string>
+    <string name="home_empty_state">Todavía no hay nada que recomendar — abre algún título para empezar</string>
+    <string name="more_open_in_title">Abrir recomendaciones en</string>
+    <string name="more_open_in_subtitle">La app donde se abre cada título que toques</string>
+    <string name="more_referral_button">🎁 Referidos</string>
+    <string name="more_devices_button">📱 Dispositivos</string>
+    <string name="more_history_button">🕒 Historial</string>
+    <string name="more_logout_button">🚪 Cerrar sesión</string>
+    <string name="logout_confirm_title">¿Cerrar sesión?</string>
+    <string name="logout_confirm_body">Solo se borra este dispositivo (el email guardado aquí, y el historial/Mi lista en caché) — no se desvincula de tu cuenta ni gastas ningún hueco de dispositivo. Puedes volver a verificar con el mismo email u otro distinto.</string>
+    <string name="logout_confirm_button">Cerrar sesión</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_back">Atrás</string>
+
+    <!-- Referral -->
+    <string name="referral_title">Referidos</string>
+    <string name="referral_your_code">Tu código</string>
+    <string name="referral_lifetime_unlocked">🎉 ¡Has conseguido Lifetime gratis!</string>
+    <string name="referral_progress">%1$d/%2$d amigos han comprado Lifetime</string>
+    <string name="referral_explanation">Comparte tu código. Cuando tu amigo abra una recomendación de verdad, ganas +4 días de prueba; si compra Lifetime, +15 días más.</string>
+    <string name="referral_verify_first">Verifica tu email para obtener tu código</string>
+    <string name="referral_friend_prompt">¿Te ha invitado un amigo?</string>
+    <string name="referral_friend_code_label">Su código</string>
+    <string name="referral_apply_button">Aplicar código</string>
+    <string name="referral_status_checking">Comprobando…</string>
+    <string name="referral_status_applied">Código aplicado, ¡gracias!</string>
+    <string name="referral_status_invalid_code">Ese código no parece correcto</string>
+    <string name="referral_status_own_code">No puedes usar tu propio código</string>
+    <string name="referral_status_already_referred">Este dispositivo ya usó un código de referido</string>
+    <string name="referral_status_limit_reached">Ese código ya se ha usado el máximo de veces permitido</string>
+    <string name="referral_status_not_verified">Primero verifica tu email</string>
+    <string name="referral_status_error">No se pudo contactar con el servidor, inténtalo más tarde</string>
+
+    <!-- Devices -->
+    <string name="devices_title">Dispositivos</string>
+    <string name="devices_verify_first">Primero verifica tu suscripción</string>
+    <string name="devices_empty">No se encontraron dispositivos</string>
+    <string name="devices_unknown_name">Dispositivo desconocido</string>
+    <string name="devices_type_mobile">Móvil/Tablet</string>
+    <string name="devices_type_tv">TV</string>
+    <string name="devices_row_subtitle">%1$s · vinculado el %2$s</string>
+    <string name="devices_row_subtitle_this_device">%1$s · vinculado el %2$s · este dispositivo</string>
+    <string name="devices_remove_button">Quitar</string>
+    <string name="devices_confirm_remove_title">¿Quitar este dispositivo?</string>
+
+    <!-- History -->
+    <string name="history_title">Historial</string>
+    <string name="history_empty">Todavía no hay nada en el historial</string>
+    <string name="history_bucket_today">Hoy</string>
+    <string name="history_bucket_yesterday">Ayer</string>
+    <string name="history_bucket_this_week">Esta semana</string>
+    <string name="history_bucket_earlier">Antes</string>
+</resources>

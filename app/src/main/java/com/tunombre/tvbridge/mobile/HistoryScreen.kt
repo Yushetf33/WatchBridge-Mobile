@@ -18,6 +18,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
@@ -98,13 +99,13 @@ class HistoryViewModel(app: Application) : AndroidViewModel(app) {
     /** Entradas sin fecha (watchedAt=0, de antes de que esto existiera) van
      * directas a "Antes" en vez de colarse en "Hoy" por culpa de un 0. */
     private fun bucketLabel(watchedAt: Long): String {
-        if (watchedAt <= 0L) return "Antes"
+        if (watchedAt <= 0L) return context.getString(R.string.history_bucket_earlier)
         val diffDays = (startOfDay(System.currentTimeMillis()) - startOfDay(watchedAt)) / DAY_MS
         return when {
-            diffDays <= 0L -> "Hoy"
-            diffDays == 1L -> "Ayer"
-            diffDays in 2..6 -> "Esta semana"
-            else -> "Antes"
+            diffDays <= 0L -> context.getString(R.string.history_bucket_today)
+            diffDays == 1L -> context.getString(R.string.history_bucket_yesterday)
+            diffDays in 2..6 -> context.getString(R.string.history_bucket_this_week)
+            else -> context.getString(R.string.history_bucket_earlier)
         }
     }
 }
@@ -118,8 +119,8 @@ fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = viewModel())
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historial") },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Atrás") } }
+                title = { Text(stringResource(R.string.history_title)) },
+                navigationIcon = { TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) } }
             )
         }
     ) { padding ->
@@ -130,7 +131,7 @@ fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = viewModel())
                 }
                 uiState.buckets.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        "Todavía no hay nada en el historial",
+                        stringResource(R.string.history_empty),
                         modifier = Modifier.padding(32.dp),
                         textAlign = TextAlign.Center
                     )

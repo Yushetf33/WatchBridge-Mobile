@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -95,11 +96,15 @@ fun DevicesScreen(onBack: () -> Unit, onRemovedSelf: () -> Unit, viewModel: Devi
     var pendingRemoval by remember { mutableStateOf<BoundDevice?>(null) }
     LaunchedEffect(Unit) { viewModel.load() }
 
+    val unknownDeviceName = stringResource(R.string.devices_unknown_name)
+    val mobileTypeLabel = stringResource(R.string.devices_type_mobile)
+    val tvTypeLabel = stringResource(R.string.devices_type_tv)
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dispositivos") },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Atrás") } }
+                title = { Text(stringResource(R.string.devices_title)) },
+                navigationIcon = { TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) } }
             )
         }
     ) { padding ->
@@ -109,16 +114,21 @@ fun DevicesScreen(onBack: () -> Unit, onRemovedSelf: () -> Unit, viewModel: Devi
                     CircularProgressIndicator()
                 }
                 state.devices.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(if (state.error == "not_verified") "Verifica tu suscripción primero" else "No hay dispositivos vinculados")
+                    Text(stringResource(if (state.error == "not_verified") R.string.devices_verify_first else R.string.devices_empty))
                 }
                 else -> LazyColumn {
                     items(state.devices, key = { it.deviceId }) { device ->
                         val boundDate = if (device.boundAt > 0) DateFormat.getDateInstance().format(Date(device.boundAt)) else "?"
-                        val typeLabel = if (device.deviceType == "mobile") "Móvil/Tablet" else "TV"
+                        val typeLabel = if (device.deviceType == "mobile") mobileTypeLabel else tvTypeLabel
+                        val subtitle = if (device.isThisDevice) {
+                            stringResource(R.string.devices_row_subtitle_this_device, typeLabel, boundDate)
+                        } else {
+                            stringResource(R.string.devices_row_subtitle, typeLabel, boundDate)
+                        }
                         ListItem(
-                            headlineContent = { Text(device.deviceName ?: "Dispositivo desconocido") },
-                            supportingContent = { Text("$typeLabel · vinculado el $boundDate" + if (device.isThisDevice) " · este dispositivo" else "") },
-                            trailingContent = { TextButton(onClick = { pendingRemoval = device }) { Text("Quitar") } }
+                            headlineContent = { Text(device.deviceName ?: unknownDeviceName) },
+                            supportingContent = { Text(subtitle) },
+                            trailingContent = { TextButton(onClick = { pendingRemoval = device }) { Text(stringResource(R.string.devices_remove_button)) } }
                         )
                     }
                 }
@@ -129,15 +139,15 @@ fun DevicesScreen(onBack: () -> Unit, onRemovedSelf: () -> Unit, viewModel: Devi
     pendingRemoval?.let { device ->
         AlertDialog(
             onDismissRequest = { pendingRemoval = null },
-            title = { Text("¿Quitar este dispositivo?") },
-            text = { Text(device.deviceName ?: "Dispositivo desconocido") },
+            title = { Text(stringResource(R.string.devices_confirm_remove_title)) },
+            text = { Text(device.deviceName ?: unknownDeviceName) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.remove(device, onRemovedSelf)
                     pendingRemoval = null
-                }) { Text("Quitar") }
+                }) { Text(stringResource(R.string.devices_remove_button)) }
             },
-            dismissButton = { TextButton(onClick = { pendingRemoval = null }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = { pendingRemoval = null }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 }

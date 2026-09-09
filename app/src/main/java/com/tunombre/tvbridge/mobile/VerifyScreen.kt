@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -89,7 +90,7 @@ class VerifyViewModel(app: Application) : AndroidViewModel(app) {
     fun verify(onSuccess: () -> Unit) {
         val trimmed = email.trim()
         if (trimmed.isBlank() || !trimmed.contains("@")) {
-            statusMessage = "Introduce un email válido"
+            statusMessage = context.getString(R.string.verify_invalid_email)
             return
         }
         isChecking = true
@@ -101,18 +102,17 @@ class VerifyViewModel(app: Application) : AndroidViewModel(app) {
                 when (result) {
                     is VerifyResult.Valid -> onSuccess()
                     is VerifyResult.Invalid -> statusMessage = messageFor(result)
-                    VerifyResult.NetworkError -> statusMessage = "Error de red — inténtalo de nuevo"
+                    VerifyResult.NetworkError -> statusMessage = context.getString(R.string.verify_error_network)
                 }
             }
         }
     }
 
     private fun messageFor(result: VerifyResult.Invalid): String = when (result.reason) {
-        "device_mismatch" -> "Ya tienes el máximo de dispositivos móviles vinculados a este email" +
-            (result.retryInDays?.let { " — vuelve a intentarlo en $it días, o quita uno desde \"Dispositivos\"" } ?: "")
-        "trial_already_used" -> "Este dispositivo ya usó su prueba gratis antes"
-        "not_subscribed" -> "No hay ninguna suscripción activa con ese email"
-        else -> "No se pudo verificar — inténtalo de nuevo"
+        "device_mismatch" -> context.getString(R.string.verify_error_device_mismatch, result.retryInDays ?: 30)
+        "trial_already_used" -> context.getString(R.string.verify_error_trial_already_used)
+        "not_subscribed" -> context.getString(R.string.verify_error_not_subscribed)
+        else -> context.getString(R.string.verify_error_generic)
     }
 
     /** Añade el deviceId como client_reference_id del Payment Link, con el
@@ -199,14 +199,14 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
         )
         Spacer(Modifier.height(20.dp))
         Text(
-            "TvRecommendationBridge",
+            stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Mismo email que usaste (o vas a usar) en la TV — el historial y las recomendaciones se comparten entre todos tus dispositivos.",
+            stringResource(R.string.verify_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -219,11 +219,11 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Ya tengo cuenta", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.verify_have_account), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
                     value = viewModel.email,
                     onValueChange = viewModel::onEmailChange,
-                    label = { Text("Email") },
+                    label = { Text(stringResource(R.string.verify_email_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth()
@@ -234,7 +234,7 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text(if (viewModel.isChecking) "Comprobando…" else "Verificar")
+                    Text(stringResource(if (viewModel.isChecking) R.string.verify_checking else R.string.verify_button))
                 }
                 viewModel.statusMessage?.let {
                     Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -250,20 +250,20 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("¿Todavía no tienes cuenta?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.verify_no_account_yet), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Button(
                     onClick = { openCustomTab(context, viewModel.paymentUri(BuildConfig.MONTHLY_PAYMENT_URL)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Empezar prueba gratis de 2 días")
+                    Text(stringResource(R.string.verify_start_trial))
                 }
                 OutlinedButton(
                     onClick = { openCustomTab(context, viewModel.paymentUri(BuildConfig.LIFETIME_PAYMENT_URL)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Comprar de por vida — 4,99 €")
+                    Text(stringResource(R.string.verify_buy_lifetime))
                 }
             }
         }
@@ -272,7 +272,7 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Text("Esperando confirmación del pago…", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.verify_waiting_payment), style = MaterialTheme.typography.bodySmall)
             }
         }
         Spacer(Modifier.height(24.dp))

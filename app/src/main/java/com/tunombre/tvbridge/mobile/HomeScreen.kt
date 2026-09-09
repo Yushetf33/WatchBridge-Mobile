@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,10 +62,11 @@ import kotlin.random.Random
 /** Misma idea que RecommendationsRowsFragment.Category en la app de TV. */
 enum class Category { MOVIES, SERIES, WATCHLIST }
 
+@Composable
 private fun labelFor(category: Category) = when (category) {
-    Category.MOVIES -> "Películas"
-    Category.SERIES -> "Series"
-    Category.WATCHLIST -> "Mi lista"
+    Category.MOVIES -> stringResource(R.string.tab_movies)
+    Category.SERIES -> stringResource(R.string.tab_series)
+    Category.WATCHLIST -> stringResource(R.string.tab_watchlist)
 }
 
 private fun emojiFor(category: Category) = when (category) {
@@ -160,25 +162,25 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         if (category == Category.WATCHLIST) {
             val movies = watchlist.filter { it.type == MediaType.MOVIE }
             val series = watchlist.filter { it.type == MediaType.SERIES }
-            if (movies.isNotEmpty()) rows += RowUi("wl_movies", "Películas", movies)
-            if (series.isNotEmpty()) rows += RowUi("wl_series", "Series", series)
+            if (movies.isNotEmpty()) rows += RowUi("wl_movies", context.getString(R.string.tab_movies), movies)
+            if (series.isNotEmpty()) rows += RowUi("wl_series", context.getString(R.string.tab_series), series)
         } else {
             val wantedMediaPath = if (category == Category.MOVIES) "movie" else "tv"
             val cwForTab = continueWatching.filter { it.mediaPath == wantedMediaPath }
             if (cwForTab.isNotEmpty()) {
-                rows += RowUi("continue_watching", "Continuar viendo", cwForTab, isContinueWatching = true)
+                rows += RowUi("continue_watching", context.getString(R.string.row_continue_watching), cwForTab, isContinueWatching = true)
             }
             val upcomingForTab = if (category == Category.SERIES) upcomingEpisodes else emptyList()
             if (upcomingForTab.isNotEmpty()) {
-                rows += RowUi("upcoming_episodes", "Próximos episodios", upcomingForTab)
+                rows += RowUi("upcoming_episodes", context.getString(R.string.row_upcoming_episodes), upcomingForTab)
             }
             val topPicks = recommendations?.let { if (category == Category.MOVIES) it.movieTopPicks else it.seriesTopPicks } ?: emptyList()
             if (topPicks.isNotEmpty()) {
-                rows += RowUi("top_picks", "Recomendado para ti", topPicks)
+                rows += RowUi("top_picks", context.getString(R.string.row_top_picks), topPicks)
             }
             val seedRows = recommendations?.let { if (category == Category.MOVIES) it.movieRows else it.seriesRows } ?: emptyList()
             seedRows.forEachIndexed { index, seedRow ->
-                rows += RowUi("seed_$index", "Porque viste ${seedRow.seedTitle}", seedRow.recommendations)
+                rows += RowUi("seed_$index", context.getString(R.string.row_because_you_watched, seedRow.seedTitle), seedRow.recommendations)
             }
         }
         _uiState.update { it.copy(isLoading = false, category = category, rows = rows) }
@@ -265,12 +267,14 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showMore by remember { mutableStateOf(false) }
 
+    val openFailedMessage = stringResource(R.string.home_open_failed)
+    val notEnoughHistoryMessage = stringResource(R.string.home_not_enough_history)
     LaunchedEffect(Unit) { viewModel.refresh() }
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             val message = when (event) {
-                HomeEvent.OpenFailed -> "No se pudo abrir ese título — comprueba tu suscripción o vuelve a intentarlo"
-                HomeEvent.SurpriseMeNotEnoughHistory -> "Todavía no hay suficiente historial para esto"
+                HomeEvent.OpenFailed -> openFailedMessage
+                HomeEvent.SurpriseMeNotEnoughHistory -> notEnoughHistoryMessage
             }
             snackbarHostState.showSnackbar(message)
         }
@@ -302,7 +306,7 @@ fun HomeScreen(
                     selected = showMore,
                     onClick = { showMore = true },
                     icon = { Text("⚙️") },
-                    label = { Text("Más") }
+                    label = { Text(stringResource(R.string.tab_more)) }
                 )
             }
         }
@@ -331,7 +335,7 @@ fun HomeScreen(
                             onClick = { viewModel.surpriseMe() },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                         ) {
-                            Text("🎲 Sorpréndeme")
+                            Text(stringResource(R.string.surprise_me_button))
                         }
                     }
                     when {
@@ -340,7 +344,7 @@ fun HomeScreen(
                         }
                         uiState.rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
-                                "Todavía no hay nada que recomendar — abre algún título para empezar",
+                                stringResource(R.string.home_empty_state),
                                 modifier = Modifier.padding(32.dp),
                                 textAlign = TextAlign.Center
                             )
@@ -379,9 +383,9 @@ private fun MorePanel(
     var confirmingLogout by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Text("Abrir recomendaciones en", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.more_open_in_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Text(
-            "La app donde se abre cada título que toques",
+            stringResource(R.string.more_open_in_subtitle),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
@@ -391,15 +395,15 @@ private fun MorePanel(
         HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
 
         OutlinedButton(onClick = onOpenReferral, modifier = Modifier.fillMaxWidth()) {
-            Text("🎁 Referidos")
+            Text(stringResource(R.string.more_referral_button))
         }
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
-            Text("📱 Dispositivos")
+            Text(stringResource(R.string.more_devices_button))
         }
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = onOpenHistory, modifier = Modifier.fillMaxWidth()) {
-            Text("📜 Historial")
+            Text(stringResource(R.string.more_history_button))
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
@@ -409,23 +413,23 @@ private fun MorePanel(
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         ) {
-            Text("🚪 Cerrar sesión")
+            Text(stringResource(R.string.more_logout_button))
         }
     }
 
     if (confirmingLogout) {
         AlertDialog(
             onDismissRequest = { confirmingLogout = false },
-            title = { Text("¿Cerrar sesión?") },
-            text = { Text("Solo se borra este dispositivo (el email guardado aquí, y el historial/Mi lista en caché) — no se desvincula de tu cuenta ni gastas ningún hueco de dispositivo. Puedes volver a verificar con el mismo email u otro distinto.") },
+            title = { Text(stringResource(R.string.logout_confirm_title)) },
+            text = { Text(stringResource(R.string.logout_confirm_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmingLogout = false
                     onLogout()
-                }) { Text("Cerrar sesión") }
+                }) { Text(stringResource(R.string.logout_confirm_button)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmingLogout = false }) { Text("Cancelar") }
+                TextButton(onClick = { confirmingLogout = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
