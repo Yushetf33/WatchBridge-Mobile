@@ -1,13 +1,13 @@
 # TvRecommendationBridge Mobile
 
-App de móvil/tablet complementaria a [TvRecommendationBridge](https://yushetf33.github.io/TvReccomendationBridge/) — misma cuenta, mismo historial y recomendaciones compartidas con tus TVs.
+Phone/tablet companion app to [TvRecommendationBridge](https://yushetf33.github.io/TvReccomendationBridge/) — same account, same watch history and recommendations shared with your TVs.
 
-Este repositorio solo aloja las descargas ([Releases](../../releases)) — el código fuente es privado.
+This repository only hosts downloads ([Releases](../../releases)) — the source code is private.
 
-## Descargar
+## Download
 
-APK más reciente: **[Releases → última versión](../../releases/latest)**
+Latest APK: **[Releases → latest version](../../releases/latest)**
 
-## Instalar
+## Installing
 
-Al no venir de Google Play, Android puede avisar de "origen desconocido" o bloquear la instalación con Play Protect — es normal en cualquier app instalada así, no algo específico de esta. Si aparece ese aviso, busca "Más detalles" → "Instalar de todas formas".
+Since it's not on Google Play, Android may warn about an "unknown source" or block the install with Play Protect — that's normal for any app installed this way, not specific to this one. If you see that warning, look for "More details" → "Install anyway".
