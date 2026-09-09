@@ -1,7 +1,6 @@
 package com.tunombre.tvbridge.mobile
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -30,7 +29,7 @@ fun TvBridgeApp() {
     val navController = rememberNavController()
     val startDestination = remember { if (LicenseManager.isLikelyValid(context)) Routes.HOME else Routes.VERIFY }
 
-    MaterialTheme {
+    TvBridgeTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             NavHost(navController = navController, startDestination = startDestination) {
                 composable(Routes.VERIFY) {

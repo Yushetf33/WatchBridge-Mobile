@@ -1,3 +1,11 @@
 <resources>
-    <style name="Theme.TvBridgeMobile" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Tema base solo para la ventana antes de que cargue Compose (que
+         aplica su propio MaterialTheme, ver Theme.kt): oscuro y con el
+         mismo fondo de marca, para que no haya un parpadeo blanco al
+         abrir la app. -->
+    <style name="Theme.TvBridgeMobile" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/brand_background</item>
+        <item name="android:statusBarColor">@color/brand_background</item>
+        <item name="android:navigationBarColor">@color/brand_background</item>
+    </style>
 </resources>

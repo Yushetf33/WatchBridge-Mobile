@@ -3,14 +3,24 @@ package com.tunombre.tvbridge.mobile
 import android.app.Application
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -20,10 +30,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
@@ -169,57 +184,98 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("TvRecommendationBridge", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(24.dp))
+        Image(
+            painter = painterResource(R.drawable.logo),
+            contentDescription = null,
+            modifier = Modifier
+                .size(72.dp)
+                .clip(RoundedCornerShape(18.dp))
+        )
+        Spacer(Modifier.height(20.dp))
+        Text(
+            "TvRecommendationBridge",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(8.dp))
         Text(
             "Mismo email que usaste (o vas a usar) en la TV — el historial y las recomendaciones se comparten entre todos tus dispositivos.",
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
+        Spacer(Modifier.height(32.dp))
 
-        OutlinedTextField(
-            value = viewModel.email,
-            onValueChange = viewModel::onEmailChange,
-            label = { Text("Email") },
-            singleLine = true,
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Button(
-            onClick = { viewModel.verify(onVerified) },
-            enabled = !viewModel.isChecking,
-            modifier = Modifier.fillMaxWidth()
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Text(if (viewModel.isChecking) "Comprobando…" else "Verificar")
-        }
-        viewModel.statusMessage?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Ya tengo cuenta", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = viewModel.email,
+                    onValueChange = viewModel::onEmailChange,
+                    label = { Text("Email") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Button(
+                    onClick = { viewModel.verify(onVerified) },
+                    enabled = !viewModel.isChecking,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(if (viewModel.isChecking) "Comprobando…" else "Verificar")
+                }
+                viewModel.statusMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
 
-        HorizontalDivider()
-        Text("¿Todavía no tienes cuenta?", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(16.dp))
 
-        Button(
-            onClick = { openCustomTab(context, viewModel.paymentUri(BuildConfig.MONTHLY_PAYMENT_URL)) },
-            modifier = Modifier.fillMaxWidth()
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Text("Empezar prueba gratis de 2 días")
-        }
-        OutlinedButton(
-            onClick = { openCustomTab(context, viewModel.paymentUri(BuildConfig.LIFETIME_PAYMENT_URL)) },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Comprar de por vida — 4,99 €")
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("¿Todavía no tienes cuenta?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Button(
+                    onClick = { openCustomTab(context, viewModel.paymentUri(BuildConfig.MONTHLY_PAYMENT_URL)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Empezar prueba gratis de 2 días")
+                }
+                OutlinedButton(
+                    onClick = { openCustomTab(context, viewModel.paymentUri(BuildConfig.LIFETIME_PAYMENT_URL)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Comprar de por vida — 4,99 €")
+                }
+            }
         }
 
         if (viewModel.isPolling) {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CircularProgressIndicator(modifier = Modifier.padding(2.dp))
+            Spacer(Modifier.height(20.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 Text("Esperando confirmación del pago…", style = MaterialTheme.typography.bodySmall)
             }
         }
+        Spacer(Modifier.height(24.dp))
     }
 }
 
