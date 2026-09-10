@@ -39,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -164,7 +163,16 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setCategory(category: Category) = rebuildRows(category)
+    fun setCategory(category: Category) {
+        // Al entrar en Mi lista, releer la caché LOCAL (SharedPreferences,
+        // sin red) antes de reconstruir filas — barato, y evita que un
+        // toggle hecho fuera de Home (p.ej. desde DetailScreen) tarde hasta
+        // el siguiente refresh() de red en reflejarse aquí.
+        if (category == Category.WATCHLIST) {
+            watchlist = Watchlist.getLocal(context).map { it.toTmdbRecommendation() }
+        }
+        rebuildRows(category)
+    }
 
     fun setPlayerApp(app: PlayerApp) {
         Preferences.setSelectedApp(context, app)
@@ -303,7 +311,6 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val historyState by historyViewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableStateOf(BottomTab.MOVIES) }
 
@@ -327,15 +334,27 @@ fun HomeScreen(
             snackbarHostState.showSnackbar(message)
         }
     }
-    DisposableEffect(lifecycleOwner) {
+    // OJO: LocalLifecycleOwner.current AQUÍ es el del NavBackStackEntry de
+    // esta pantalla (lo inyecta Navigation-Compose), no el de la Activity
+    // — pasa por ON_PAUSE/ON_RESUME cada vez que se navega a otra pantalla
+    // por encima (p.ej. DetailScreen) y se vuelve atrás, aunque no se haya
+    // salido de la app. Enganchado ahí, cada "volver" desde una ficha
+    // disparaba una recarga completa (red: TMDb + backend), tan lenta como
+    // abrir la app entera — justo lo que se quiere evitar. Se usa el
+    // lifecycle de la Activity en su lugar, que solo pasa por ON_RESUME de
+    // verdad al reabrir la app (arranque en frío, o volver de Nuvio/Stremio
+    // tras ver algo — que sí interesa refrescar).
+    val activity = context as? androidx.activity.ComponentActivity
+    DisposableEffect(activity) {
+        if (activity == null) return@DisposableEffect onDispose {}
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refresh()
                 historyViewModel.refresh()
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        activity.lifecycle.addObserver(observer)
+        onDispose { activity.lifecycle.removeObserver(observer) }
     }
 
     Scaffold(
