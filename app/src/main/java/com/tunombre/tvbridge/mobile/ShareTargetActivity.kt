@@ -35,7 +35,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val IMDB_URL_REGEX = Regex("imdb\\.com/title/(tt\\d+)")
+// IMDb sirve la URL con un prefijo de idioma según el navegador
+// (imdb.com/es-es/title/..., imdb.com/de/title/..., etc.) — confirmado
+// real compartiendo desde un navegador en español. El segmento de idioma
+// es opcional en el patrón para no perderlo.
+private val IMDB_URL_REGEX = Regex("imdb\\.com/(?:[a-z]{2}(?:-[a-z]{2})?/)?title/(tt\\d+)")
 private val TMDB_URL_REGEX = Regex("themoviedb\\.org/(movie|tv)/(\\d+)")
 
 private sealed class ShareState {
