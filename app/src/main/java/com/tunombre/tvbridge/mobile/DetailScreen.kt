@@ -59,11 +59,14 @@ data class DetailUiState(
     val isInWatchlist: Boolean = false,
     val moreLikeThis: List<TmdbClient.TmdbRecommendation> = emptyList(),
     val installedApps: List<PlayerApp> = emptyList(),
-    val defaultApp: PlayerApp = PlayerApp.NUVIO
+    val defaultApp: PlayerApp = PlayerApp.NUVIO,
+    val tvDevices: List<BoundDevice> = emptyList()
 )
 
 sealed class DetailEvent {
     object OpenFailed : DetailEvent()
+    data class SentToTv(val deviceName: String) : DetailEvent()
+    object SendToTvFailed : DetailEvent()
 }
 
 /**
@@ -93,6 +96,9 @@ class DetailViewModel(app: Application) : AndroidViewModel(app) {
             val type = if (mediaPath == "tv") MediaType.SERIES else MediaType.MOVIE
             val defaultApp = Preferences.getAppFor(context, type)
             val installedApps = PlayerApp.entries.filter { isAppInstalled(it) }
+            val tvDevices = LicenseManager.getSavedEmail(context)?.let { email ->
+                (DeviceApi.listDevices(context, email) as? DevicesResult.Loaded)?.devices?.filter { it.deviceType == "tv" }
+            } ?: emptyList()
             withContext(Dispatchers.Main) {
                 _uiState.update {
                     it.copy(
@@ -101,9 +107,31 @@ class DetailViewModel(app: Application) : AndroidViewModel(app) {
                         isInWatchlist = isInWatchlist,
                         moreLikeThis = moreLikeThis,
                         installedApps = installedApps,
-                        defaultApp = defaultApp
+                        defaultApp = defaultApp,
+                        tvDevices = tvDevices
                     )
                 }
+            }
+        }
+    }
+
+    /** "Enviar a la TV" — deja pendiente la apertura en [target] (ver
+     * DeviceApi.sendRemoteOpen); la propia TV la recoge sondeando por su
+     * cuenta en segundo plano, no hay confirmación de que ya se haya
+     * abierto de verdad, solo de que el backend la guardó. */
+    fun sendToTv(target: BoundDevice) {
+        val details = _uiState.value.details ?: return
+        val email = LicenseManager.getSavedEmail(context) ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = DeviceApi.sendRemoteOpen(
+                context, email, target.deviceId,
+                details.tmdbId, details.mediaPath, details.title, details.posterPath, details.overview
+            )
+            withContext(Dispatchers.Main) {
+                _events.emit(
+                    if (ok) DetailEvent.SentToTv(target.deviceName ?: target.deviceId)
+                    else DetailEvent.SendToTvFailed
+                )
             }
         }
     }
@@ -153,15 +181,22 @@ fun DetailScreen(
     viewModel: DetailViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val openFailedMessage = stringResource(R.string.home_open_failed)
+    val sendToTvFailedMessage = stringResource(R.string.detail_send_to_tv_failed)
     var showPlayerPicker by remember { mutableStateOf(false) }
+    var showTvPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(tmdbId, mediaPath) { viewModel.load(tmdbId, mediaPath) }
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 DetailEvent.OpenFailed -> snackbarHostState.showSnackbar(openFailedMessage)
+                DetailEvent.SendToTvFailed -> snackbarHostState.showSnackbar(sendToTvFailedMessage)
+                is DetailEvent.SentToTv -> snackbarHostState.showSnackbar(
+                    context.getString(R.string.detail_sent_to_tv, event.deviceName)
+                )
             }
         }
     }
@@ -247,6 +282,38 @@ fun DetailScreen(
                                             },
                                             label = { Text(app.label) }
                                         )
+                                    }
+                                }
+                            }
+
+                            if (uiState.tvDevices.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                if (uiState.tvDevices.size == 1) {
+                                    val tv = uiState.tvDevices[0]
+                                    OutlinedButton(onClick = { viewModel.sendToTv(tv) }, modifier = Modifier.fillMaxWidth()) {
+                                        Text(stringResource(R.string.detail_send_to_tv, tv.deviceName ?: tv.deviceId))
+                                    }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = { showTvPicker = !showTvPicker },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(stringResource(R.string.detail_send_to_tv_picker))
+                                    }
+                                    if (showTvPicker) {
+                                        Spacer(Modifier.height(8.dp))
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            items(uiState.tvDevices) { tv ->
+                                                FilterChip(
+                                                    selected = false,
+                                                    onClick = {
+                                                        showTvPicker = false
+                                                        viewModel.sendToTv(tv)
+                                                    },
+                                                    label = { Text(tv.deviceName ?: tv.deviceId) }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

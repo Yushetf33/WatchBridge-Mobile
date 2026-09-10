@@ -54,6 +54,38 @@ object DeviceApi {
         )
     }
 
+    /** "Enviar a la TV" (ver DetailScreen) — deja pendiente para
+     * [targetDeviceId] (debe ser otro dispositivo de esta misma cuenta) la
+     * apertura de este título; la propia TV la recoge sondeando por su
+     * cuenta (RemoteOpenClient.poll en la app de TV), no hay push. true si
+     * el backend confirmó que quedó guardada, no si la TV ya la abrió. */
+    fun sendRemoteOpen(
+        context: Context,
+        email: String,
+        targetDeviceId: String,
+        tmdbId: Int,
+        mediaPath: String,
+        title: String,
+        posterPath: String?,
+        overview: String?
+    ): Boolean {
+        val body = JSONObject().apply {
+            put("email", email)
+            put("deviceId", LicenseManager.getDeviceId(context))
+            put("action", "remote_open_send")
+            put("targetDeviceId", targetDeviceId)
+            put("tmdbId", tmdbId)
+            put("mediaPath", mediaPath)
+            put("title", title)
+            if (posterPath != null) put("posterPath", posterPath)
+            if (overview != null) put("overview", overview)
+        }
+        return runCatching { call(body) }
+            .onFailure { Log.e(TAG, "Error enviando a la TV", it) }
+            .getOrNull()
+            ?.optBoolean("ok", false) ?: false
+    }
+
     /** true si se pudo eliminar. */
     fun removeDevice(context: Context, email: String, targetDeviceId: String): Boolean {
         val body = JSONObject().apply {

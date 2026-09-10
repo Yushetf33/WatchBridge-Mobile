@@ -101,6 +101,10 @@
     <string name="detail_add_to_watchlist">+ Mi lista</string>
     <string name="detail_in_watchlist">✓ En mi lista</string>
     <string name="detail_more_like_this">Más como esta</string>
+    <string name="detail_send_to_tv">📺 Enviar a %1$s</string>
+    <string name="detail_send_to_tv_picker">📺 Enviar a la TV</string>
+    <string name="detail_sent_to_tv">Enviado a %1$s — debería abrirse ahí en breve</string>
+    <string name="detail_send_to_tv_failed">No se pudo enviar a la TV — inténtalo de nuevo</string>
 
     <!-- Compartir desde otras apps -->
     <string name="share_resolving">Buscando ese título…</string>

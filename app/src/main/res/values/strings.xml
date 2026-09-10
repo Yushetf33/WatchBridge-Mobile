@@ -103,6 +103,10 @@
     <string name="detail_add_to_watchlist">+ My list</string>
     <string name="detail_in_watchlist">✓ In my list</string>
     <string name="detail_more_like_this">More like this</string>
+    <string name="detail_send_to_tv">📺 Send to %1$s</string>
+    <string name="detail_send_to_tv_picker">📺 Send to TV</string>
+    <string name="detail_sent_to_tv">Sent to %1$s — should open there shortly</string>
+    <string name="detail_send_to_tv_failed">Couldn\'t send to the TV — try again</string>
 
     <!-- Share-to-app -->
     <string name="share_resolving">Finding that title…</string>
