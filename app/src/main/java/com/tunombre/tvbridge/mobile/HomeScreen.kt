@@ -97,7 +97,13 @@ data class RowUi(
     val id: String,
     val title: String,
     val items: List<TmdbClient.TmdbRecommendation>,
-    val isContinueWatching: Boolean = false
+    val isContinueWatching: Boolean = false,
+    // Título "semilla" limpio (sin el "Porque viste " delante) para las
+    // filas de recomendaciones por título visto — DetailScreen lo usa para
+    // la línea "Recomendada porque viste: X" cuando se llega desde una de
+    // estas filas. Null en el resto (Continuar viendo, Top picks, etc.),
+    // donde no hay un único título que explique la recomendación.
+    val seedTitle: String? = null
 )
 
 data class HomeUiState(
@@ -199,25 +205,15 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             }
             val seedRows = recommendations?.let { if (category == Category.MOVIES) it.movieRows else it.seriesRows } ?: emptyList()
             seedRows.forEachIndexed { index, seedRow ->
-                rows += RowUi("seed_$index", context.getString(R.string.row_because_you_watched, seedRow.seedTitle), seedRow.recommendations)
+                rows += RowUi(
+                    "seed_$index",
+                    context.getString(R.string.row_because_you_watched, seedRow.seedTitle),
+                    seedRow.recommendations,
+                    seedTitle = seedRow.seedTitle
+                )
             }
         }
         _uiState.update { it.copy(isLoading = false, category = category, rows = rows) }
-    }
-
-    /** Toca una tarjeta: resuelve el imdbId contra el backend propio (gate
-     * de suscripción, ver TmdbClient.resolveCandidate) y abre en la app
-     * elegida — mismo camino que RecommendationOpenActivity en la TV, sin
-     * la indirección de la URI interna: aquí todo pasa en el mismo
-     * proceso. */
-    fun openRecommendation(rec: TmdbClient.TmdbRecommendation) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val candidate = TmdbCandidate(rec.tmdbId, rec.mediaPath, rec.title, year = null, posterPath = rec.posterPath, overview = rec.overview)
-            val match = TmdbClient.resolveCandidate(context, candidate)
-            withContext(Dispatchers.Main) {
-                if (match != null) StremioLauncher.open(context, match) else _events.emit(HomeEvent.OpenFailed)
-            }
-        }
     }
 
     /** Mantener pulsado sobre una tarjeta normal: alterna Mi lista — mismo
@@ -298,6 +294,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 fun HomeScreen(
     onOpenReferral: () -> Unit,
     onOpenDevices: () -> Unit,
+    onOpenTraktImport: () -> Unit,
+    onOpenDetail: (mediaPath: String, tmdbId: Int, seedTitle: String?) -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
     historyViewModel: HistoryViewModel = viewModel()
@@ -328,9 +326,6 @@ fun HomeScreen(
             }
             snackbarHostState.showSnackbar(message)
         }
-    }
-    LaunchedEffect(Unit) {
-        historyViewModel.openFailed.collect { snackbarHostState.showSnackbar(openFailedMessage) }
     }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -372,6 +367,7 @@ fun HomeScreen(
                     onSelectApp = viewModel::setPlayerApp,
                     onOpenReferral = onOpenReferral,
                     onOpenDevices = onOpenDevices,
+                    onOpenTraktImport = onOpenTraktImport,
                     onCheckForUpdate = viewModel::checkForUpdate,
                     onLogout = {
                         viewModel.logout()
@@ -380,7 +376,7 @@ fun HomeScreen(
                 )
                 BottomTab.HISTORY -> HistoryContent(
                     uiState = historyState,
-                    onClick = historyViewModel::openRecommendation,
+                    onClick = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, null) },
                     onLongClick = historyViewModel::toggleWatchlist
                 )
                 else -> Column(Modifier.fillMaxSize()) {
@@ -408,7 +404,7 @@ fun HomeScreen(
                                 RecommendationRow(
                                     title = row.title,
                                     items = row.items,
-                                    onClick = viewModel::openRecommendation,
+                                    onClick = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, row.seedTitle) },
                                     onLongClick = { rec ->
                                         if (row.isContinueWatching) viewModel.removeFromContinueWatching(rec)
                                         else viewModel.toggleWatchlist(rec)
@@ -431,6 +427,7 @@ private fun MorePanel(
     onSelectApp: (PlayerApp) -> Unit,
     onOpenReferral: () -> Unit,
     onOpenDevices: () -> Unit,
+    onOpenTraktImport: () -> Unit,
     onCheckForUpdate: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -454,6 +451,10 @@ private fun MorePanel(
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.more_devices_button))
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = onOpenTraktImport, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.more_trakt_import_button))
         }
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = onCheckForUpdate, modifier = Modifier.fillMaxWidth()) {

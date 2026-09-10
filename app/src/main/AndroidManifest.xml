@@ -58,6 +58,32 @@
             </intent-filter>
         </activity>
 
+        <!-- "Compartir → TvRecommendationBridge" desde cualquier app, y el
+             esquema propio tvbridge://movie/{imdbId} — ver
+             ShareTargetActivity. Actividad aislada (misma idea que
+             MatchPickerActivity/ConfirmOpenActivity en la app de TV): no
+             comparte tarea con MainActivity, y no aparece en recientes ya
+             que solo hace una resolución puntual antes de pasarle el
+             resultado a MainActivity. -->
+        <activity
+            android:name=".ShareTargetActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TvBridgeMobile"
+            android:taskAffinity=""
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tvbridge" android:host="movie" />
+            </intent-filter>
+        </activity>
+
         <!-- Recibe el aviso de DownloadManager cuando termina de bajar la
              APK de una actualización (ver UpdateChecker/UpdateDownloadReceiver).
              DOWNLOAD_COMPLETE lo emite com.android.providers.downloads, un

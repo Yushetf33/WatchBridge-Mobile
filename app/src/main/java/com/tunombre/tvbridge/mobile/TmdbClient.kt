@@ -61,6 +61,26 @@ data class EpisodeMatch(val season: Int, val episode: Int, val title: String)
  * TMDb todavía no tiene fecha anunciada. */
 data class NextEpisodeInfo(val season: Int, val episode: Int, val airDate: String)
 
+/** Ficha completa de una película/serie para [TmdbClient.fetchDetails] — a
+ * diferencia de [TmdbRecommendation] (pensado solo para una fila de
+ * tarjetas), esto es lo que necesita la pantalla de detalle propia:
+ * backdrop, nota media, año y duración además de lo básico. Llamada
+ * directa a TMDb (igual que fetchRecommendations) — es metadata para
+ * mostrar, no la resolución a imdb_id que sí exige suscripción. */
+data class TmdbDetails(
+    val tmdbId: Int,
+    val mediaPath: String,
+    val title: String,
+    val overview: String?,
+    val posterPath: String?,
+    val backdropPath: String?,
+    val voteAverage: Double,
+    val year: String?,
+    val runtimeMinutes: Int?
+) {
+    val type: MediaType get() = if (mediaPath == "tv") MediaType.SERIES else MediaType.MOVIE
+}
+
 /** Resultado de [TmdbClient.resolve]: o bien se resolvió directamente a un
  * único [TmdbMatch], o bien hay varios títulos EXACTOS con años distintos
  * (p.ej. un remake) y hace falta que el usuario elija cuál — ver
@@ -346,6 +366,106 @@ object TmdbClient {
             Log.e(TAG, "Error obteniendo next_episode_to_air ($tmdbId)", e)
             null
         }
+    }
+
+    /** Ficha completa para la pantalla de detalle propia (ver DetailScreen) —
+     * llamada directa a TMDb, igual que [fetchRecommendations]: es solo
+     * metadata para mostrar (póster, backdrop, nota, año, duración), no la
+     * resolución a imdb_id que sí pasa por el backend y exige suscripción.
+     *
+     * Bloqueante (red) — llamar siempre desde un hilo de fondo. */
+    fun fetchDetails(tmdbId: Int, mediaPath: String): TmdbDetails? {
+        val language = Locale.getDefault().toLanguageTag()
+        val url = "https://api.themoviedb.org/3/$mediaPath/$tmdbId?api_key=$TMDB_API_KEY&language=$language"
+        val request = Request.Builder().url(url).build()
+
+        return try {
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "details ($mediaPath/$tmdbId) falló: ${response.code}")
+                    return null
+                }
+                val body = response.body?.string() ?: return null
+                val json = JSONObject(body)
+                val title = json.optString("title", json.optString("name", "")).takeIf { it.isNotBlank() } ?: return null
+                val date = json.optStringOrNull("release_date") ?: json.optStringOrNull("first_air_date")
+                val year = date?.takeIf { it.length >= 4 }?.substring(0, 4)
+                // Películas traen "runtime" directo; series traen
+                // "episode_run_time" (lista, puede venir vacía si TMDb no lo
+                // tiene catalogado) — se usa el primer valor como duración
+                // típica de un episodio.
+                val runtime = if (mediaPath == "tv") {
+                    json.optJSONArray("episode_run_time")?.let { if (it.length() > 0) it.getInt(0) else null }
+                } else {
+                    json.optInt("runtime", 0).takeIf { it > 0 }
+                }
+                TmdbDetails(
+                    tmdbId = tmdbId,
+                    mediaPath = mediaPath,
+                    title = title,
+                    overview = json.optStringOrNull("overview"),
+                    posterPath = json.optStringOrNull("poster_path"),
+                    backdropPath = json.optStringOrNull("backdrop_path"),
+                    voteAverage = json.optDouble("vote_average", 0.0),
+                    year = year,
+                    runtimeMinutes = runtime
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo detalles ($mediaPath/$tmdbId)", e)
+            null
+        }
+    }
+
+    /** Busca en TMDb el equivalente a un IMDb ID (formato "tt1234567") —
+     * usado cuando se comparte un enlace de IMDb o el esquema propio
+     * `tvbridge://movie/{imdbId}` desde otra app (ver ShareTargetActivity):
+     * ahí se tiene el IMDb ID pero hace falta el TMDb ID para todo lo demás
+     * (ficha de detalle, resolución final). Llamada directa a TMDb, no
+     * gated — es solo una búsqueda de equivalencia de IDs, no la resolución
+     * de pago.
+     *
+     * Bloqueante (red) — llamar siempre desde un hilo de fondo. */
+    fun findByImdbId(imdbId: String): TmdbCandidate? {
+        val url = "https://api.themoviedb.org/3/find/$imdbId?api_key=$TMDB_API_KEY&external_source=imdb_id"
+        val request = Request.Builder().url(url).build()
+
+        return try {
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "find ($imdbId) falló: ${response.code}")
+                    return null
+                }
+                val body = response.body?.string() ?: return null
+                val json = JSONObject(body)
+                val movieResults = json.optJSONArray("movie_results")
+                if (movieResults != null && movieResults.length() > 0) {
+                    return toCandidate(movieResults.getJSONObject(0), "movie")
+                }
+                val tvResults = json.optJSONArray("tv_results")
+                if (tvResults != null && tvResults.length() > 0) {
+                    return toCandidate(tvResults.getJSONObject(0), "tv")
+                }
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error buscando por IMDb ID ($imdbId)", e)
+            null
+        }
+    }
+
+    private fun toCandidate(json: JSONObject, mediaPath: String): TmdbCandidate {
+        val title = json.optString("title", json.optString("name", ""))
+        val date = json.optStringOrNull("release_date") ?: json.optStringOrNull("first_air_date")
+        val year = date?.takeIf { it.length >= 4 }?.substring(0, 4)
+        return TmdbCandidate(
+            tmdbId = json.getInt("id"),
+            mediaPath = mediaPath,
+            title = title,
+            year = year,
+            posterPath = json.optStringOrNull("poster_path"),
+            overview = json.optStringOrNull("overview")
+        )
     }
 
     /** ID de vídeo de YouTube del tráiler de [tmdbId], o null si no hay

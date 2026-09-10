@@ -36,7 +36,6 @@
     <string name="more_open_in_subtitle">La app donde se abre cada título que toques</string>
     <string name="more_referral_button">🎁 Referidos</string>
     <string name="more_devices_button">📱 Dispositivos</string>
-    <string name="more_history_button">🕒 Historial</string>
     <string name="more_logout_button">🚪 Cerrar sesión</string>
     <string name="logout_confirm_title">¿Cerrar sesión?</string>
     <string name="logout_confirm_body">Solo se borra este dispositivo (el email guardado aquí, y el historial/Mi lista en caché) — no se desvincula de tu cuenta ni gastas ningún hueco de dispositivo. Puedes volver a verificar con el mismo email u otro distinto.</string>
@@ -92,4 +91,33 @@
     <string name="update_check_up_to_date">Ya tienes la última versión (%1$s)</string>
     <string name="update_check_downloading">Descargando actualización %1$s…</string>
     <string name="update_check_network_error">No se pudo comprobar si hay actualizaciones — revisa tu conexión e inténtalo de nuevo</string>
+
+    <!-- Ficha de detalle -->
+    <string name="detail_not_found">No se pudo cargar este título</string>
+    <string name="detail_runtime_minutes">%1$d min</string>
+    <string name="detail_recommended_because">Recomendada porque viste: %1$s</string>
+    <string name="detail_watch_now">▶ Ver con %1$s</string>
+    <string name="detail_change_player">Cambiar reproductor</string>
+    <string name="detail_add_to_watchlist">+ Mi lista</string>
+    <string name="detail_in_watchlist">✓ En mi lista</string>
+    <string name="detail_more_like_this">Más como esta</string>
+
+    <!-- Compartir desde otras apps -->
+    <string name="share_resolving">Buscando ese título…</string>
+    <string name="share_not_found">No se encontró ese título</string>
+    <string name="share_match_picker_title">¿Cuál de estas es \"%1$s\"?</string>
+    <string name="share_verify_first">Verifica tu suscripción primero para usar esto</string>
+
+    <!-- Importar de Trakt -->
+    <string name="more_trakt_import_button">📥 Importar de Trakt</string>
+    <string name="trakt_import_title">Importar de Trakt</string>
+    <string name="trakt_import_intro">Trae tu historial y Mi lista ya existentes en Trakt — así una compra nueva no significa empezar de cero.</string>
+    <string name="trakt_import_start_button">Empezar importación</string>
+    <string name="trakt_import_open_url">Abre %1$s e introduce este código:</string>
+    <string name="trakt_import_waiting">Esperando a que lo apruebes en Trakt…</string>
+    <string name="trakt_import_success">Importados %1$d elementos de historial y %2$d de Mi lista (%3$d no se pudieron encontrar)</string>
+    <string name="trakt_import_error_expired">Ese código caducó — inténtalo de nuevo</string>
+    <string name="trakt_import_error_denied">La importación se rechazó en Trakt</string>
+    <string name="trakt_import_error_generic">No se pudo importar de Trakt — inténtalo más tarde</string>
+    <string name="trakt_import_close_button">Listo</string>
 </resources>

@@ -17,10 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -50,9 +48,6 @@ class HistoryViewModel(app: Application) : AndroidViewModel(app) {
     private val _uiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
-    private val _openFailed = MutableSharedFlow<Unit>()
-    val openFailed = _openFailed.asSharedFlow()
-
     fun refresh() {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
@@ -64,16 +59,6 @@ class HistoryViewModel(app: Application) : AndroidViewModel(app) {
             val rows = buckets.entries.mapIndexed { index, (label, list) -> RowUi("bucket_$index", label, list) }
             withContext(Dispatchers.Main) {
                 _uiState.update { it.copy(isLoading = false, buckets = rows) }
-            }
-        }
-    }
-
-    fun openRecommendation(rec: TmdbClient.TmdbRecommendation) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val candidate = TmdbCandidate(rec.tmdbId, rec.mediaPath, rec.title, year = null, posterPath = rec.posterPath, overview = rec.overview)
-            val match = TmdbClient.resolveCandidate(context, candidate)
-            withContext(Dispatchers.Main) {
-                if (match != null) StremioLauncher.open(context, match) else _openFailed.emit(Unit)
             }
         }
     }

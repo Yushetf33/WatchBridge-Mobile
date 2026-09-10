@@ -33,7 +33,18 @@ object StremioLauncher {
     // ambos paquetes al vigilar sesiones de media activas.
     val NUVIO_PACKAGES = listOf("com.nuvio.app", "com.nuvio.tv")
 
-    fun open(service: Context, match: TmdbMatch) {
+    /**
+     * @param overrideApp Si no es null, abre SIEMPRE en esa app en concreto
+     * en vez de en la app por defecto (ver Preferences.getAppFor) — usado
+     * por el selector "Cambiar reproductor" de DetailScreen, para una
+     * apertura puntual sin tocar la preferencia guardada. Al venir de una
+     * elección explícita del usuario, se saltan también las comprobaciones
+     * automáticas de Jellyfin/Plex personales (tryOpenInPersonalJellyfin/
+     * tryOpenInPlexCatalog) — esas solo tienen sentido para el flujo por
+     * defecto, no cuando el usuario ya ha dicho exactamente dónde quiere
+     * verlo.
+     */
+    fun open(service: Context, match: TmdbMatch, overrideApp: PlayerApp? = null) {
         // Aviso al programa de referidos (ver ReferralManager): si a este
         // dispositivo lo trajo el código de un amigo, esta es la señal de
         // "uso real" que desbloquea sus días de bonus — independiente del
@@ -50,9 +61,11 @@ object StremioLauncher {
         val mediaPath = if (match.type == MediaType.SERIES) "tv" else "movie"
         RecommendationHistory.record(service, match.tmdbId, mediaPath, match.title, match.posterPath, match.overview)
 
-        if (tryOpenInPersonalJellyfin(service, match)) return
-        if (tryOpenInPlexCatalog(service, match)) return
-        when (val app = Preferences.getAppFor(service, match.type)) {
+        if (overrideApp == null) {
+            if (tryOpenInPersonalJellyfin(service, match)) return
+            if (tryOpenInPlexCatalog(service, match)) return
+        }
+        when (val app = overrideApp ?: Preferences.getAppFor(service, match.type)) {
             PlayerApp.NUVIO -> {
                 val uri = if (match.type == MediaType.MOVIE) {
                     Uri.parse("nuvio://movie/${match.imdbId}")
