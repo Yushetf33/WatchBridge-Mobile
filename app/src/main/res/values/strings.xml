@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TvRecommendationBridge</string>
+    <string name="app_name">WatchBridge Mobile</string>
     <!-- Usado por StremioLauncher.openPlayStoreListing (copiado tal cual del
          texto de la app de TV). -->
     <string name="target_app_not_installed">%1$s isn\'t installed — opening its Play Store page</string>
@@ -86,7 +86,7 @@
 
     <!-- Updates -->
     <string name="update_notification_channel_name">Updates</string>
-    <string name="update_notification_downloading_title">Downloading TvRecommendationBridge update</string>
+    <string name="update_notification_downloading_title">Downloading WatchBridge Mobile update</string>
     <string name="update_notification_ready_title">Update ready</string>
     <string name="update_notification_ready_text">Version %1$s is downloaded — tap to install</string>
     <string name="more_check_update_button">🔄 Check for updates</string>

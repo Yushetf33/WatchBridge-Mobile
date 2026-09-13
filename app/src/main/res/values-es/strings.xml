@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TvRecommendationBridge</string>
+    <string name="app_name">WatchBridge Mobile</string>
     <string name="target_app_not_installed">%1$s no está instalada — abriendo su ficha en la Play Store</string>
 
     <!-- Verify -->
@@ -84,7 +84,7 @@
 
     <!-- Actualizaciones -->
     <string name="update_notification_channel_name">Actualizaciones</string>
-    <string name="update_notification_downloading_title">Descargando actualización de TvRecommendationBridge</string>
+    <string name="update_notification_downloading_title">Descargando actualización de WatchBridge Mobile</string>
     <string name="update_notification_ready_title">Actualización lista</string>
     <string name="update_notification_ready_text">La versión %1$s ya está descargada — toca para instalar</string>
     <string name="more_check_update_button">🔄 Buscar actualizaciones</string>
