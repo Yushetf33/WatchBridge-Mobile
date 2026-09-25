@@ -20,8 +20,8 @@ android {
         applicationId = "com.tunombre.tvbridge.mobile"
         minSdk = 24
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.0.10"
+        versionCode = 12
+        versionName = "1.0.11"
 
         // Mismo patrón que la app de TV: se lee de local.properties (no
         // versionado).
@@ -105,6 +105,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("androidx.navigation:navigation-compose:2.9.6")
     implementation("androidx.browser:browser:1.9.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // Carga de pósters en las tarjetas de Compose (la app de TV usa su

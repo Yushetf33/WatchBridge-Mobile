@@ -150,7 +150,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     /** Recalcula todo desde cero — llamado al entrar a la pantalla y en
      * cada ON_RESUME (ver HomeScreen), igual que
      * RecommendationsRowsFragment.onResume. */
+    // Cada refresh() lleva su número: si mientras carga se lanza otro (p.ej.
+    // dos ON_RESUME seguidos), el viejo deja de escribir estado. Sin esto,
+    // el "recommendations = null" del refresh nuevo podía borrar lo que el
+    // viejo acababa de calcular y perder filas (como "Recomendado para ti").
+    private var refreshGeneration = 0
+
     fun refresh() {
+        val generation = ++refreshGeneration
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
             val online = isOnline()
@@ -167,10 +174,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 .sortedByDescending { it.watchedAt }
                 .take(CONTINUE_WATCHING_MAX)
                 .map { it.toTmdbRecommendation() }
-            recommendations = null
+            if (generation != refreshGeneration) return@launch
             withContext(Dispatchers.Main) {
                 _uiState.update { it.copy(loadingMore = true) }
                 rebuildRows(_uiState.value.category)
+                SplashGate.ready = true
             }
 
             // Fase 2: películas, series y próximos episodios a la vez, y
@@ -180,19 +188,24 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             coroutineScope {
                 launch {
                     val (picks, rows) = RecommendationEngine.computeForType(historyItems, "movie")
+                    if (generation != refreshGeneration) return@launch
                     updateRecommendations { it.copy(movieTopPicks = picks, movieRows = rows) }
                     withContext(Dispatchers.Main) { rebuildRows(_uiState.value.category) }
                 }
                 launch {
                     val (picks, rows) = RecommendationEngine.computeForType(historyItems, "tv")
+                    if (generation != refreshGeneration) return@launch
                     updateRecommendations { it.copy(seriesTopPicks = picks, seriesRows = rows) }
                     withContext(Dispatchers.Main) { rebuildRows(_uiState.value.category) }
                 }
                 launch {
-                    upcomingEpisodes = UpcomingEpisodesEngine.compute(watchlistItems, historyItems)
+                    val upcoming = UpcomingEpisodesEngine.compute(watchlistItems, historyItems)
+                    if (generation != refreshGeneration) return@launch
+                    upcomingEpisodes = upcoming
                     withContext(Dispatchers.Main) { rebuildRows(_uiState.value.category) }
                 }
             }
+            if (generation != refreshGeneration) return@launch
             withContext(Dispatchers.Main) {
                 // Sin red y sin nada que enseñar: avisarlo en vez de decir
                 // "todavía no hay nada que recomendar", que engaña.

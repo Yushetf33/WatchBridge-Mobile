@@ -165,6 +165,7 @@ class VerifyViewModel(app: Application) : AndroidViewModel(app) {
 fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel()) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { SplashGate.ready = true }
 
     // Sondea mientras la pantalla está visible (igual que SubscriptionActivity
     // en la TV) — así, si el usuario paga en la Custom Tab y vuelve a la app,

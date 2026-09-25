@@ -8,4 +8,13 @@
         <item name="android:statusBarColor">@color/brand_background</item>
         <item name="android:navigationBarColor">@color/brand_background</item>
     </style>
+
+    <!-- Pantalla de arranque con el logo mientras Inicio carga por detrás
+         (ver SplashGate y MainActivity) — al terminar, la ventana pasa al
+         tema normal de arriba. -->
+    <style name="Theme.TvBridgeMobile.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.TvBridgeMobile</item>
+    </style>
 </resources>
