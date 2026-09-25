@@ -229,6 +229,11 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Text(
+                    stringResource(R.string.verify_play_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Button(
                     onClick = { viewModel.verify(onVerified) },
                     enabled = !viewModel.isChecking,

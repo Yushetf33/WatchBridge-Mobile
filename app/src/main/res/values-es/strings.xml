@@ -5,6 +5,7 @@
     <!-- Verify -->
     <string name="verify_intro">Mismo email que usaste (o vas a usar) en la TV — el historial y las recomendaciones se comparten entre todos tus dispositivos.</string>
     <string name="verify_have_account">Ya tengo cuenta</string>
+    <string name="verify_play_note">¿Pagaste en Google Play desde la tele? Usa el mismo correo que pusiste en la app de la tele (en su pantalla de Suscripción, escríbelo y pulsa Verificar) para que esta app reconozca tu compra.</string>
     <string name="verify_email_label">Email</string>
     <string name="verify_checking">Verificando…</string>
     <string name="verify_button">Verificar</string>
