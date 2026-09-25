@@ -20,8 +20,8 @@ android {
         applicationId = "com.tunombre.tvbridge.mobile"
         minSdk = 24
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.0.9"
+        versionCode = 11
+        versionName = "1.0.10"
 
         // Mismo patrón que la app de TV: se lee de local.properties (no
         // versionado).

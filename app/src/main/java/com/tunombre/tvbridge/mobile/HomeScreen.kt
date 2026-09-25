@@ -49,6 +49,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -110,7 +112,10 @@ data class HomeUiState(
     val category: Category = Category.MOVIES,
     val rows: List<RowUi> = emptyList(),
     val selectedApp: PlayerApp = PlayerApp.NUVIO,
-    val offline: Boolean = false
+    val offline: Boolean = false,
+    // Fase 2 de refresh() en curso: las filas de recomendaciones todavía
+    // están llegando (no pintar "nada que recomendar" antes de tiempo).
+    val loadingMore: Boolean = false
 )
 
 sealed class HomeEvent {
@@ -149,23 +154,62 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
             val online = isOnline()
-            val result = RecommendationEngine.compute(context)
-            val watchlistItems = Watchlist.fetchMerged(context)
-            val historyItems = RecommendationHistory.fetchMerged(context)
-            recommendations = result
+
+            // Fase 1: historial y Mi lista EN PARALELO (antes uno detrás de
+            // otro, y el historial se pedía dos veces) y se pintan ya
+            // "Continuar viendo" y Mi lista, sin esperar a TMDb.
+            val historyDeferred = async { RecommendationHistory.fetchMerged(context) }
+            val watchlistDeferred = async { Watchlist.fetchMerged(context) }
+            val historyItems = historyDeferred.await()
+            val watchlistItems = watchlistDeferred.await()
             watchlist = watchlistItems.map { it.toTmdbRecommendation() }
             continueWatching = historyItems
                 .sortedByDescending { it.watchedAt }
                 .take(CONTINUE_WATCHING_MAX)
                 .map { it.toTmdbRecommendation() }
-            upcomingEpisodes = UpcomingEpisodesEngine.compute(watchlistItems, historyItems)
+            recommendations = null
             withContext(Dispatchers.Main) {
+                _uiState.update { it.copy(loadingMore = true) }
                 rebuildRows(_uiState.value.category)
+            }
+
+            // Fase 2: películas, series y próximos episodios a la vez, y
+            // cada bloque se pinta en cuanto llega (antes la pantalla
+            // esperaba a tenerlo todo). Las semillas de cada bloque, además,
+            // se piden en paralelo (ver RecommendationEngine).
+            coroutineScope {
+                launch {
+                    val (picks, rows) = RecommendationEngine.computeForType(historyItems, "movie")
+                    updateRecommendations { it.copy(movieTopPicks = picks, movieRows = rows) }
+                    withContext(Dispatchers.Main) { rebuildRows(_uiState.value.category) }
+                }
+                launch {
+                    val (picks, rows) = RecommendationEngine.computeForType(historyItems, "tv")
+                    updateRecommendations { it.copy(seriesTopPicks = picks, seriesRows = rows) }
+                    withContext(Dispatchers.Main) { rebuildRows(_uiState.value.category) }
+                }
+                launch {
+                    upcomingEpisodes = UpcomingEpisodesEngine.compute(watchlistItems, historyItems)
+                    withContext(Dispatchers.Main) { rebuildRows(_uiState.value.category) }
+                }
+            }
+            withContext(Dispatchers.Main) {
                 // Sin red y sin nada que enseñar: avisarlo en vez de decir
                 // "todavía no hay nada que recomendar", que engaña.
-                _uiState.update { it.copy(offline = !online && it.rows.isEmpty()) }
+                _uiState.update { it.copy(loadingMore = false, offline = !online && it.rows.isEmpty()) }
             }
         }
+    }
+
+    // Películas y series terminan en hilos distintos: sin esto, dos
+    // lecturas-y-escrituras a la vez podían pisarse y perder un bloque.
+    @Synchronized
+    private fun updateRecommendations(
+        change: (RecommendationEngine.Recommendations) -> RecommendationEngine.Recommendations
+    ) {
+        val current = recommendations
+            ?: RecommendationEngine.Recommendations(emptyList(), emptyList(), emptyList(), emptyList())
+        recommendations = change(current)
     }
 
     private fun isOnline(): Boolean {
@@ -419,7 +463,7 @@ fun HomeScreen(
                         }
                     }
                     when {
-                        uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        uiState.isLoading || (uiState.rows.isEmpty() && uiState.loadingMore) -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }
                         uiState.rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

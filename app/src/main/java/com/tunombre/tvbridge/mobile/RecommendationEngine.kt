@@ -49,33 +49,44 @@ object RecommendationEngine {
      * historial. */
     fun compute(context: android.content.Context): Recommendations {
         val history = RecommendationHistory.fetchMerged(context)
-        if (history.isEmpty()) return Recommendations(emptyList(), emptyList(), emptyList(), emptyList())
+        val (movieTopPicks, movieRows) = computeForType(history, "movie")
+        val (seriesTopPicks, seriesRows) = computeForType(history, "tv")
+        return Recommendations(movieTopPicks, seriesTopPicks, movieRows, seriesRows)
+    }
 
+    /** Recomendaciones de UN tipo ("movie" o "tv") a partir de un historial
+     * ya cargado — para que la pantalla pueda pintar películas en cuanto
+     * estén, sin esperar a las series, y sin volver a pedir el historial
+     * (ver HomeViewModel.refresh). Bloqueante (red: TMDb). */
+    fun computeForType(
+        history: List<OpenedTitle>,
+        mediaPath: String
+    ): Pair<List<TmdbClient.TmdbRecommendation>, List<SeedRow>> {
+        val seeds = history.filter { it.mediaPath == mediaPath }.take(SEEDS_PER_TYPE)
+        if (seeds.isEmpty()) return emptyList<TmdbClient.TmdbRecommendation>() to emptyList()
         val seen = history.map { it.tmdbId to it.mediaPath }.toSet()
-        val movieSeeds = history.filter { it.mediaPath == "movie" }.take(SEEDS_PER_TYPE)
-        val seriesSeeds = history.filter { it.mediaPath == "tv" }.take(SEEDS_PER_TYPE)
-
         // Una sola llamada a TMDb por semilla, reutilizada tanto para la
         // fila propia de esa semilla como para el cruce de
         // "Recomendado para ti" — antes se pedía dos veces lo mismo.
-        val movieSeedResults = fetchForSeeds(movieSeeds, seen)
-        val seriesSeedResults = fetchForSeeds(seriesSeeds, seen)
+        val results = fetchForSeeds(seeds, seen)
+        return buildTopPicks(results) to buildRows(results)
+    }
 
-        return Recommendations(
-            movieTopPicks = buildTopPicks(movieSeedResults),
-            seriesTopPicks = buildTopPicks(seriesSeedResults),
-            movieRows = buildRows(movieSeedResults),
-            seriesRows = buildRows(seriesSeedResults)
-        )
+    // Las llamadas a TMDb de las semillas van en paralelo: antes eran una
+    // detrás de otra (hasta 16 seguidas), que era el grueso de la espera.
+    private val seedExecutor = java.util.concurrent.Executors.newFixedThreadPool(6) { r ->
+        Thread(r).apply { isDaemon = true }
     }
 
     private fun fetchForSeeds(seeds: List<OpenedTitle>, seen: Set<Pair<Int, String>>): List<SeedResult> {
         return seeds.map { seed ->
-            val recs = TmdbClient.fetchRecommendations(seed.tmdbId, seed.mediaPath)
-                .filter { (it.tmdbId to it.mediaPath) !in seen }
-                .sortedByDescending { it.popularity }
-            SeedResult(seed.title, recs)
-        }
+            seedExecutor.submit<SeedResult> {
+                val recs = TmdbClient.fetchRecommendations(seed.tmdbId, seed.mediaPath)
+                    .filter { (it.tmdbId to it.mediaPath) !in seen }
+                    .sortedByDescending { it.popularity }
+                SeedResult(seed.title, recs)
+            }
+        }.map { it.get() }
     }
 
     private fun buildRows(seedResults: List<SeedResult>): List<SeedRow> {
