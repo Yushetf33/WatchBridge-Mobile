@@ -4,6 +4,7 @@
 
     <!-- Necesario porque TmdbClient hace peticiones HTTP a api.themoviedb.org -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Fuerza un arranque en frío de Nuvio/Stremio antes de cada apertura
          (ver StremioLauncher.openWithFallback) — sin esto, a veces se
          quedan en la última ficha abierta en vez de navegar a la nueva. -->
@@ -43,7 +44,7 @@
     </queries>
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.TvBridgeMobile">

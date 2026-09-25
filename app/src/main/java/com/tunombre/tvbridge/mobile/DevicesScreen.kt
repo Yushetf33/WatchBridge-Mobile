@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -114,7 +115,16 @@ fun DevicesScreen(onBack: () -> Unit, onRemovedSelf: () -> Unit, viewModel: Devi
                     CircularProgressIndicator()
                 }
                 state.devices.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(if (state.error == "not_verified") R.string.devices_verify_first else R.string.devices_empty))
+                    Text(
+                        stringResource(
+                            when (state.error) {
+                                "not_verified" -> R.string.devices_verify_first
+                                null -> R.string.devices_empty
+                                else -> R.string.devices_load_error
+                            }
+                        ),
+                        modifier = Modifier.padding(32.dp)
+                    )
                 }
                 else -> LazyColumn {
                     items(state.devices, key = { it.deviceId }) { device ->

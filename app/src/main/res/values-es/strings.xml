@@ -31,6 +31,9 @@
     <string name="surprise_me_button">🎲 Sorpréndeme</string>
     <string name="home_open_failed">No se pudo abrir ese título — comprueba tu suscripción o vuelve a intentarlo</string>
     <string name="home_not_enough_history">Todavía no hay suficiente historial para esto</string>
+    <string name="home_offline_state">Sin conexión — comprueba tu internet y vuelve a intentarlo</string>
+    <string name="retry">Reintentar</string>
+    <string name="privacy_policy_link">Política de privacidad</string>
     <string name="home_empty_state">Todavía no hay nada que recomendar — abre algún título para empezar</string>
     <string name="more_open_in_title">Abrir recomendaciones en</string>
     <string name="more_open_in_subtitle">La app donde se abre cada título que toques</string>
@@ -66,6 +69,7 @@
     <string name="devices_title">Dispositivos</string>
     <string name="devices_verify_first">Primero verifica tu suscripción</string>
     <string name="devices_empty">No se encontraron dispositivos</string>
+    <string name="devices_load_error">No se pueden cargar los dispositivos — comprueba tu conexión y vuelve a intentarlo</string>
     <string name="devices_unknown_name">Dispositivo desconocido</string>
     <string name="devices_type_mobile">Móvil/Tablet</string>
     <string name="devices_type_tv">TV</string>

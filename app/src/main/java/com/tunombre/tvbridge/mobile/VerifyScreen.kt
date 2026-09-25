@@ -275,9 +275,17 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
                 Text(stringResource(R.string.verify_waiting_payment), style = MaterialTheme.typography.bodySmall)
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
+        androidx.compose.material3.TextButton(
+            onClick = { openCustomTab(context, Uri.parse(PRIVACY_POLICY_URL)) }
+        ) {
+            Text(stringResource(R.string.privacy_policy_link), style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }
+
+private const val PRIVACY_POLICY_URL = "https://yushetf33.github.io/WatchBridge/privacy.html"
 
 private fun openCustomTab(context: android.content.Context, uri: Uri) {
     CustomTabsIntent.Builder().build().launchUrl(context, uri)

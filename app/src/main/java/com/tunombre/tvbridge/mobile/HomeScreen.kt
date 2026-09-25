@@ -109,7 +109,8 @@ data class HomeUiState(
     val isLoading: Boolean = true,
     val category: Category = Category.MOVIES,
     val rows: List<RowUi> = emptyList(),
-    val selectedApp: PlayerApp = PlayerApp.NUVIO
+    val selectedApp: PlayerApp = PlayerApp.NUVIO,
+    val offline: Boolean = false
 )
 
 sealed class HomeEvent {
@@ -147,6 +148,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh() {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
+            val online = isOnline()
             val result = RecommendationEngine.compute(context)
             val watchlistItems = Watchlist.fetchMerged(context)
             val historyItems = RecommendationHistory.fetchMerged(context)
@@ -159,8 +161,17 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             upcomingEpisodes = UpcomingEpisodesEngine.compute(watchlistItems, historyItems)
             withContext(Dispatchers.Main) {
                 rebuildRows(_uiState.value.category)
+                // Sin red y sin nada que enseñar: avisarlo en vez de decir
+                // "todavía no hay nada que recomendar", que engaña.
+                _uiState.update { it.copy(offline = !online && it.rows.isEmpty()) }
             }
         }
+    }
+
+    private fun isOnline(): Boolean {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java) ?: return true
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     fun setCategory(category: Category) {
@@ -412,11 +423,18 @@ fun HomeScreen(
                             CircularProgressIndicator()
                         }
                         uiState.rows.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                stringResource(R.string.home_empty_state),
-                                modifier = Modifier.padding(32.dp),
-                                textAlign = TextAlign.Center
-                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    stringResource(if (uiState.offline) R.string.home_offline_state else R.string.home_empty_state),
+                                    modifier = Modifier.padding(32.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                                if (uiState.offline) {
+                                    Button(onClick = { viewModel.refresh() }) {
+                                        Text(stringResource(R.string.retry))
+                                    }
+                                }
+                            }
                         }
                         else -> LazyColumn {
                             items(uiState.rows, key = { it.id }) { row ->
