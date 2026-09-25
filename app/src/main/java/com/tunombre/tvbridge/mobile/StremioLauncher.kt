@@ -85,7 +85,7 @@ object StremioLauncher {
                 // URL de watch.plex.tv vía PlexClient (puede no encontrarse:
                 // el catálogo gratuito de Plex no tiene todo lo que hay en
                 // TMDb).
-                val watchUrl = PlexClient.findWatchUrl(match)
+                val watchUrl = PlexClient.findWatchUrl(service, match)
                 if (watchUrl == null) {
                     Log.w(TAG, "No encontrado en el catálogo gratuito de Plex: ${match.imdbId}")
                     return
@@ -150,7 +150,7 @@ object StremioLauncher {
      */
     private fun tryOpenInPlexCatalog(service: Context, match: TmdbMatch): Boolean {
         if (!Preferences.isPlexCheckEnabled(service)) return false
-        val watchUrl = PlexClient.findWatchUrl(match) ?: return false
+        val watchUrl = PlexClient.findWatchUrl(service, match) ?: return false
         openWithFallback(service, Uri.parse(watchUrl), listOf(PlayerApp.PLEX.packageName), PlayerApp.PLEX.label)
         return true
     }

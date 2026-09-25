@@ -1,51 +1,53 @@
 package com.tunombre.tvbridge.mobile
 
+import android.content.Context
 import android.util.Log
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 /**
- * Cliente mínimo para el servicio de metadatos compartido de Plex: dado un
- * IMDb ID, busca si esa película/serie está en el catálogo gratuito de
- * streaming de Plex (watch.plex.tv) y devuelve la URL directa de su ficha.
+ * Busca si un título está en el catálogo gratuito de streaming de Plex
+ * (watch.plex.tv) y devuelve la URL directa de su ficha.
  *
- * Es un servicio de metadatos GENERAL, no ligado a ninguna biblioteca
- * personal — el mismo token (de una sola cuenta) sirve para resolver
- * cualquier título, sin que el usuario tenga que conectar su propia cuenta
- * de Plex. Confirmado por ADB en dispositivo real (Iron Man y Z Nation).
- *
- * El token se lee de BuildConfig.PLEX_API_TOKEN, generado a partir de
- * PLEX_API_TOKEN en local.properties (no versionado).
+ * La consulta a Plex la hace el backend propio (acción plex_watch_url de
+ * /api/devices) en vez de la app: así el token de Plex vive solo en el
+ * servidor y no viaja dentro del APK, donde cualquiera podía extraerlo.
+ * Solo funciona en un dispositivo ya verificado (el backend exige que
+ * esté vinculado a un email).
  */
 object PlexClient {
 
-    private val PLEX_API_TOKEN = BuildConfig.PLEX_API_TOKEN
     private const val TAG = "PlexClient"
 
     private val httpClient = sharedHttpClient
-
-    // El endpoint devuelve XML; solo hace falta este atributo, así que se
-    // extrae con una regex en vez de añadir un parser XML completo.
-    private val PUBLIC_PAGES_URL = Regex("publicPagesURL=\"([^\"]+)\"")
-
-    init {
-        if (PLEX_API_TOKEN.isBlank()) {
-            Log.w(TAG, "PLEX_API_TOKEN vacío: añade PLEX_API_TOKEN en local.properties")
-        }
-    }
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     /**
      * Devuelve la URL de watch.plex.tv para este título si está en el
-     * catálogo gratuito, o null si no se encuentra (no todo lo que hay en
-     * TMDb está en Plex).
+     * catálogo gratuito, o null si no se encuentra o falla la consulta (no
+     * todo lo que hay en TMDb está en Plex).
      *
      * OJO: petición de red SÍNCRONA — llamar siempre desde un hilo de
      * fondo, igual que TmdbClient.
      */
-    fun findWatchUrl(match: TmdbMatch): String? {
-        val type = if (match.type == MediaType.SERIES) 2 else 1
-        val url = "https://metadata.provider.plex.tv/library/metadata/matches" +
-            "?guid=imdb://${match.imdbId}&type=$type&X-Plex-Token=$PLEX_API_TOKEN"
-        val request = Request.Builder().url(url).build()
+    fun findWatchUrl(context: Context, match: TmdbMatch): String? {
+        val apiUrl = BuildConfig.LICENSE_API_URL
+        val email = LicenseManager.getSavedEmail(context)
+        if (apiUrl.isBlank() || email == null) return null
+
+        val body = JSONObject().apply {
+            put("action", "plex_watch_url")
+            put("email", email)
+            put("deviceId", LicenseManager.getDeviceId(context))
+            put("imdbId", match.imdbId)
+            put("plexType", if (match.type == MediaType.SERIES) 2 else 1)
+        }.toString().toRequestBody(jsonMediaType)
+        val request = Request.Builder()
+            .url("${apiUrl.trimEnd('/')}/api/devices")
+            .post(body)
+            .build()
 
         return try {
             httpClient.newCall(request).execute().use { response ->
@@ -53,8 +55,8 @@ object PlexClient {
                     Log.w(TAG, "Búsqueda en Plex falló: ${response.code}")
                     return null
                 }
-                val body = response.body?.string() ?: return null
-                PUBLIC_PAGES_URL.find(body)?.groupValues?.get(1)
+                val json = JSONObject(response.body?.string() ?: return null)
+                if (json.isNull("url")) null else json.optString("url").takeIf { it.isNotBlank() }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error buscando en Plex", e)

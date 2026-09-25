@@ -285,7 +285,7 @@ fun VerifyScreen(onVerified: () -> Unit, viewModel: VerifyViewModel = viewModel(
     }
 }
 
-private const val PRIVACY_POLICY_URL = "https://yushetf33.github.io/WatchBridge/privacy.html"
+internal const val PRIVACY_POLICY_URL = "https://yushetf33.github.io/WatchBridge/privacy.html"
 
 private fun openCustomTab(context: android.content.Context, uri: Uri) {
     CustomTabsIntent.Builder().build().launchUrl(context, uri)

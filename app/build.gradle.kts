@@ -20,8 +20,8 @@ android {
         applicationId = "com.tunombre.tvbridge.mobile"
         minSdk = 24
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.0.8"
+        versionCode = 10
+        versionName = "1.0.9"
 
         // Mismo patrón que la app de TV: se lee de local.properties (no
         // versionado).
@@ -29,11 +29,6 @@ android {
             "String",
             "TMDB_API_KEY",
             "\"${localProperties.getProperty("TMDB_API_KEY", "")}\""
-        )
-        buildConfigField(
-            "String",
-            "PLEX_API_TOKEN",
-            "\"${localProperties.getProperty("PLEX_API_TOKEN", "")}\""
         )
         buildConfigField(
             "String",

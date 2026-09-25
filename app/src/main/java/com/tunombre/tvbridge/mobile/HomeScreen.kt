@@ -497,6 +497,17 @@ private fun MorePanel(
         OutlinedButton(onClick = onCheckForUpdate, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.more_check_update_button))
         }
+        Spacer(Modifier.height(10.dp))
+        val moreContext = androidx.compose.ui.platform.LocalContext.current
+        OutlinedButton(
+            onClick = {
+                androidx.browser.customtabs.CustomTabsIntent.Builder().build()
+                    .launchUrl(moreContext, android.net.Uri.parse(PRIVACY_POLICY_URL))
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.privacy_policy_link))
+        }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
 
