@@ -20,14 +20,6 @@ object RecommendationEngine {
     private const val SEEDS_PER_TYPE = 8
     private const val MAX_RESULTS_PER_SEED = 20
     private const val TOP_PICKS_MAX = 20
-    // Un título tiene que salir recomendado por al menos DOS semillas
-    // distintas para entrar en "Recomendado para ti" — si solo lo
-    // recomienda una, no aporta nada sobre la fila "Porque viste X" de esa
-    // misma semilla, y con una sola semilla vista la fila saldría vacía o
-    // redundante casi siempre.
-    private const val TOP_PICKS_MIN_SEED_AGREEMENT = 2
-    // Menos coincidencias que esto y se completa la fila (ver buildTopPicks).
-    private const val TOP_PICKS_MIN_ROW = 8
 
     /** Una fila "Porque viste [seedTitle]" con sus recomendaciones (ya sin
      * nada que el usuario haya visto ya, y ya ordenadas por popularidad). */
@@ -121,14 +113,11 @@ object RecommendationEngine {
                 compareByDescending<Map.Entry<Pair<Int, String>, TmdbClient.TmdbRecommendation>> { timesRecommended[it.key] ?: 0 }
                     .thenByDescending { it.value.popularity }
             )
-        val agreed = sorted.filter { (timesRecommended[it.key] ?: 0) >= TOP_PICKS_MIN_SEED_AGREEMENT }
-        // Con un historial muy variado (p.ej. una peli de terror, una de
-        // Disney y una de ciencia ficción) casi ningún título coincide entre
-        // semillas y la fila salía vacía — confirmado con el historial real
-        // del dueño: 0 coincidencias en películas. En ese caso se completa
-        // con lo más popular entre todas las semillas, para que "Recomendado
-        // para ti" no desaparezca; los que sí coinciden siguen yendo antes.
-        val result = if (agreed.size >= TOP_PICKS_MIN_ROW) agreed else agreed + sorted.filter { it !in agreed }
-        return result.map { it.value }.take(TOP_PICKS_MAX)
+        // Ordenado por nº de semillas que lo recomiendan y luego por
+        // popularidad, así que los que coinciden entre varias semillas van
+        // primero; el resto rellena hasta TOP_PICKS_MAX. Antes, con pocas
+        // coincidencias la fila salía vacía y, con algunas (p.ej. 10), se
+        // quedaba solo en esas 10 en vez de llegar a 20 como en la TV.
+        return sorted.map { it.value }.take(TOP_PICKS_MAX)
     }
 }
