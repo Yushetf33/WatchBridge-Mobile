@@ -39,6 +39,7 @@ object Watchlist {
         current.removeAll { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
         current.add(0, WatchlistItem(tmdbId, mediaPath, title, posterPath, overview))
         saveLocal(context, current)
+        RecentChanges.markAdded(context, "watchlist", tmdbId, mediaPath)
 
         val email = LicenseManager.getSavedEmail(context) ?: return
         val deviceId = LicenseManager.getDeviceId(context)
@@ -65,6 +66,7 @@ object Watchlist {
     fun remove(context: Context, tmdbId: Int, mediaPath: String): List<WatchlistItem> {
         val current = getAllLocal(context).filterNot { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
         saveLocal(context, current)
+        RecentChanges.markRemoved(context, "watchlist", tmdbId, mediaPath)
 
         val email = LicenseManager.getSavedEmail(context)
         if (email != null) {
@@ -144,8 +146,19 @@ object Watchlist {
      * Bloqueante (red) — llamar siempre desde un hilo de fondo. */
     fun fetchMerged(context: Context): List<WatchlistItem> {
         val local = getAllLocal(context)
+        // Sin conexion: se cae a la copia local para no dejar la pantalla vacia.
         val remote = fetchRemote(context) ?: return local
-        val merged = (local + remote).distinctBy { it.tmdbId to it.mediaPath }
+        // El servidor es la fuente de verdad (mismo criterio que
+        // RecommendationHistory.fetchMerged): lo anadido/quitado en cualquier
+        // dispositivo se ve igual en todos. Solo se respetan las altas y bajas
+        // de hace un momento hechas aqui, cuyo aviso al servidor va en segundo
+        // plano.
+        val removedRecently = RecentChanges.recentlyRemoved(context, "watchlist")
+        val addedRecently = RecentChanges.recentlyAdded(context, "watchlist")
+        val pendingLocal = local.filter { (it.tmdbId to it.mediaPath) in addedRecently }
+        val merged = (pendingLocal + remote)
+            .filterNot { (it.tmdbId to it.mediaPath) in removedRecently }
+            .distinctBy { it.tmdbId to it.mediaPath }
         saveLocal(context, merged)
         return merged
     }

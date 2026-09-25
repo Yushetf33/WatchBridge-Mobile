@@ -43,6 +43,8 @@ object RecommendationHistory {
     // variar las recomendaciones (que solo cogen unas pocas semillas, ver
     // RecommendationEngine) y para una pantalla de Historial real.
     private const val MAX_ENTRIES = 200
+    // Lo visto hace menos de esto se conserva aunque el servidor aun no lo tenga.
+    private const val PENDING_WINDOW_MS = 2 * 60 * 1000L
 
     private val httpClient = sharedHttpClient
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -84,6 +86,7 @@ object RecommendationHistory {
     fun remove(context: Context, tmdbId: Int, mediaPath: String): List<OpenedTitle> {
         val current = getAll(context).filterNot { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
         saveLocal(context, current)
+        RecentChanges.markRemoved(context, "history", tmdbId, mediaPath)
 
         val email = LicenseManager.getSavedEmail(context)
         if (email != null) {
@@ -158,34 +161,29 @@ object RecommendationHistory {
      * Bloqueante (red) — llamar siempre desde un hilo de fondo. */
     fun fetchMerged(context: Context): List<OpenedTitle> {
         val local = getAll(context)
+        // Sin conexion: se cae a la copia local para no dejar la pantalla vacia.
         val remote = fetchRemote(context) ?: return local
-        val removed = remote.removed
-        // Lo quitado en otro dispositivo: el servidor guarda una lápida
-        // (qué y cuándo), y aquí se descarta cualquier copia (local o remota)
-        // vista ANTES de ese momento. Sin esto, la fusión local + servidor
-        // resucitaba lo quitado desde otro dispositivo, porque este seguía
-        // teniéndolo en su copia local. Si se vuelve a ver después de
-        // quitarlo, su fecha es posterior y reaparece sola.
-        fun isRemoved(item: OpenedTitle): Boolean {
-            val removedAt = removed[item.tmdbId to item.mediaPath] ?: return false
-            return item.watchedAt <= removedAt
-        }
-        val keptLocal = local.filterNot(::isRemoved)
-        if (keptLocal.size != local.size) saveLocal(context, keptLocal)
+        // El servidor es la fuente de verdad: lo que ve el movil y lo que ve
+        // la TV es lo mismo, y lo quitado en cualquier dispositivo desaparece
+        // en todos. La copia local solo aporta lo visto hace un momento (aun
+        // sin confirmar en el servidor) y respeta lo quitado hace un momento
+        // (el aviso al servidor va en segundo plano).
+        val removedRecently = RecentChanges.recentlyRemoved(context, "history")
+        val now = System.currentTimeMillis()
+        val pendingLocal = local.filter { it.watchedAt > now - PENDING_WINDOW_MS }
         val byKey = LinkedHashMap<Pair<Int, String>, OpenedTitle>()
-        for (item in keptLocal + remote.items.filterNot(::isRemoved)) {
+        for (item in remote + pendingLocal) {
             val key = item.tmdbId to item.mediaPath
+            if (key in removedRecently) continue
             val existing = byKey[key]
-            if (existing == null || item.watchedAt > existing.watchedAt) {
-                byKey[key] = item
-            }
+            if (existing == null || item.watchedAt > existing.watchedAt) byKey[key] = item
         }
-        return byKey.values.sortedByDescending { it.watchedAt }.take(MAX_ENTRIES)
+        val merged = byKey.values.sortedByDescending { it.watchedAt }.take(MAX_ENTRIES)
+        saveLocal(context, merged)
+        return merged
     }
 
-    private class RemoteHistory(val items: List<OpenedTitle>, val removed: Map<Pair<Int, String>, Long>)
-
-    private fun fetchRemote(context: Context): RemoteHistory? {
+    private fun fetchRemote(context: Context): List<OpenedTitle>? {
         val email = LicenseManager.getSavedEmail(context) ?: return null
         val body = JSONObject().apply {
             put("action", "list")
@@ -194,17 +192,8 @@ object RecommendationHistory {
         }
         val json = postJson("/api/history", body) ?: return null
         if (!json.optBoolean("ok", false)) return null
-        val array = json.optJSONArray("history") ?: return RemoteHistory(emptyList(), emptyMap())
-        val items = (0 until array.length()).map { i -> array.getJSONObject(i).toOpenedTitle() }
-        val removedArray = json.optJSONArray("removed")
-        val removed = HashMap<Pair<Int, String>, Long>()
-        if (removedArray != null) {
-            for (i in 0 until removedArray.length()) {
-                val t = removedArray.getJSONObject(i)
-                removed[t.getInt("tmdbId") to t.getString("mediaPath")] = t.optLong("removedAt", 0L)
-            }
-        }
-        return RemoteHistory(items, removed)
+        val array = json.optJSONArray("history") ?: return emptyList()
+        return (0 until array.length()).map { i -> array.getJSONObject(i).toOpenedTitle() }
     }
 
     private fun JSONObject.toOpenedTitle() = OpenedTitle(
