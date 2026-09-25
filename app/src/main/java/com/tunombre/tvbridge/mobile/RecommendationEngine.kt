@@ -26,6 +26,8 @@ object RecommendationEngine {
     // misma semilla, y con una sola semilla vista la fila saldría vacía o
     // redundante casi siempre.
     private const val TOP_PICKS_MIN_SEED_AGREEMENT = 2
+    // Menos coincidencias que esto y se completa la fila (ver buildTopPicks).
+    private const val TOP_PICKS_MIN_ROW = 8
 
     /** Una fila "Porque viste [seedTitle]" con sus recomendaciones (ya sin
      * nada que el usuario haya visto ya, y ya ordenadas por popularidad). */
@@ -114,13 +116,19 @@ object RecommendationEngine {
                 timesRecommended[key] = (timesRecommended[key] ?: 0) + 1
             }
         }
-        return bestByCandidate.entries
-            .filter { (key, _) -> (timesRecommended[key] ?: 0) >= TOP_PICKS_MIN_SEED_AGREEMENT }
+        val sorted = bestByCandidate.entries
             .sortedWith(
                 compareByDescending<Map.Entry<Pair<Int, String>, TmdbClient.TmdbRecommendation>> { timesRecommended[it.key] ?: 0 }
                     .thenByDescending { it.value.popularity }
             )
-            .map { it.value }
-            .take(TOP_PICKS_MAX)
+        val agreed = sorted.filter { (timesRecommended[it.key] ?: 0) >= TOP_PICKS_MIN_SEED_AGREEMENT }
+        // Con un historial muy variado (p.ej. una peli de terror, una de
+        // Disney y una de ciencia ficción) casi ningún título coincide entre
+        // semillas y la fila salía vacía — confirmado con el historial real
+        // del dueño: 0 coincidencias en películas. En ese caso se completa
+        // con lo más popular entre todas las semillas, para que "Recomendado
+        // para ti" no desaparezca; los que sí coinciden siguen yendo antes.
+        val result = if (agreed.size >= TOP_PICKS_MIN_ROW) agreed else agreed + sorted.filter { it !in agreed }
+        return result.map { it.value }.take(TOP_PICKS_MAX)
     }
 }

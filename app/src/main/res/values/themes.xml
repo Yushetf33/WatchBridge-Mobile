@@ -14,7 +14,7 @@
          tema normal de arriba. -->
     <style name="Theme.TvBridgeMobile.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/brand_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.TvBridgeMobile</item>
     </style>
 </resources>
