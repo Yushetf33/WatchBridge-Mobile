@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -76,6 +77,7 @@ sealed class DetailEvent {
     object OpenFailed : DetailEvent()
     data class SentToTv(val deviceName: String) : DetailEvent()
     object SendToTvFailed : DetailEvent()
+    object TrailerNotFound : DetailEvent()
 }
 
 /**
@@ -171,6 +173,30 @@ class DetailViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Abre el trailer en YouTube (app si esta instalada, si no el navegador). */
+    fun watchTrailer() {
+        val details = _uiState.value.details ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val key = TmdbClient.fetchTrailerKey(details.tmdbId, details.mediaPath)
+            withContext(Dispatchers.Main) {
+                if (key == null) {
+                    _events.emit(DetailEvent.TrailerNotFound)
+                } else {
+                    val app = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:$key"))
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    try {
+                        context.startActivity(app)
+                    } catch (e: Exception) {
+                        context.startActivity(
+                            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=$key"))
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun toggleWatchlist() {
         val details = _uiState.value.details ?: return
         val inList = _uiState.value.isInWatchlist
@@ -194,6 +220,7 @@ fun DetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val openFailedMessage = stringResource(R.string.home_open_failed)
     val sendToTvFailedMessage = stringResource(R.string.detail_send_to_tv_failed)
+    val trailerNotFoundMessage = stringResource(R.string.detail_trailer_not_found)
     var showPlayerPicker by remember { mutableStateOf(false) }
     var showTvPicker by remember { mutableStateOf(false) }
 
@@ -203,6 +230,7 @@ fun DetailScreen(
             when (event) {
                 DetailEvent.OpenFailed -> snackbarHostState.showSnackbar(openFailedMessage)
                 DetailEvent.SendToTvFailed -> snackbarHostState.showSnackbar(sendToTvFailedMessage)
+                DetailEvent.TrailerNotFound -> snackbarHostState.showSnackbar(trailerNotFoundMessage)
                 is DetailEvent.SentToTv -> snackbarHostState.showSnackbar(
                     context.getString(R.string.detail_sent_to_tv, event.deviceName)
                 )
@@ -294,28 +322,51 @@ fun DetailScreen(
                                 )
                             }
 
-                            Spacer(Modifier.height(20.dp))
+                            Spacer(Modifier.height(22.dp))
                             Button(
                                 onClick = viewModel::watchNow,
                                 shape = RoundedCornerShape(28.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF0B0D12)),
                                 modifier = Modifier.fillMaxWidth().height(52.dp)
                             ) {
-                                Text(stringResource(R.string.detail_watch_now, uiState.defaultApp.label))
+                                Text(
+                                    stringResource(R.string.detail_watch_now, uiState.defaultApp.label),
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
-                            Spacer(Modifier.height(8.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                TextButton(onClick = { showPlayerPicker = !showPlayerPicker }) {
-                                    Text(stringResource(R.string.detail_change_player))
-                                }
-                                OutlinedButton(onClick = viewModel::toggleWatchlist, shape = RoundedCornerShape(24.dp)) {
-                                    Text(
-                                        if (uiState.isInWatchlist) stringResource(R.string.detail_in_watchlist)
-                                        else stringResource(R.string.detail_add_to_watchlist)
+                            Spacer(Modifier.height(18.dp))
+                            // Acciones secundarias: iconos con etiqueta, sin cajas — mismo
+                            // estilo minimalista que la barra de Inicio.
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                ActionItem(
+                                    icon = if (uiState.isInWatchlist) R.drawable.ic_action_check else R.drawable.ic_action_add,
+                                    label = stringResource(R.string.tab_watchlist),
+                                    active = uiState.isInWatchlist,
+                                    onClick = viewModel::toggleWatchlist
+                                )
+                                ActionItem(
+                                    icon = R.drawable.ic_action_trailer,
+                                    label = stringResource(R.string.action_trailer),
+                                    onClick = viewModel::watchTrailer
+                                )
+                                if (uiState.tvDevices.isNotEmpty()) {
+                                    ActionItem(
+                                        icon = R.drawable.ic_nav_series,
+                                        label = stringResource(R.string.action_send_to_tv),
+                                        onClick = {
+                                            if (uiState.tvDevices.size == 1) viewModel.sendToTv(uiState.tvDevices[0])
+                                            else { showTvPicker = !showTvPicker; showPlayerPicker = false }
+                                        }
                                     )
                                 }
+                                ActionItem(
+                                    icon = R.drawable.ic_action_swap,
+                                    label = stringResource(R.string.action_player),
+                                    onClick = { showPlayerPicker = !showPlayerPicker; showTvPicker = false }
+                                )
                             }
                             if (showPlayerPicker) {
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(14.dp))
                                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     items(uiState.installedApps) { app ->
                                         FilterChip(
@@ -329,35 +380,18 @@ fun DetailScreen(
                                     }
                                 }
                             }
-
-                            if (uiState.tvDevices.isNotEmpty()) {
-                                Spacer(Modifier.height(8.dp))
-                                if (uiState.tvDevices.size == 1) {
-                                    val tv = uiState.tvDevices[0]
-                                    OutlinedButton(onClick = { viewModel.sendToTv(tv) }, modifier = Modifier.fillMaxWidth()) {
-                                        Text(stringResource(R.string.detail_send_to_tv, tv.deviceName ?: tv.deviceId))
-                                    }
-                                } else {
-                                    OutlinedButton(
-                                        onClick = { showTvPicker = !showTvPicker },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(stringResource(R.string.detail_send_to_tv_picker))
-                                    }
-                                    if (showTvPicker) {
-                                        Spacer(Modifier.height(8.dp))
-                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            items(uiState.tvDevices) { tv ->
-                                                FilterChip(
-                                                    selected = false,
-                                                    onClick = {
-                                                        showTvPicker = false
-                                                        viewModel.sendToTv(tv)
-                                                    },
-                                                    label = { Text(tv.deviceName ?: tv.deviceId) }
-                                                )
-                                            }
-                                        }
+                            if (showTvPicker) {
+                                Spacer(Modifier.height(14.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(uiState.tvDevices) { tv ->
+                                        FilterChip(
+                                            selected = false,
+                                            onClick = {
+                                                showTvPicker = false
+                                                viewModel.sendToTv(tv)
+                                            },
+                                            label = { Text(tv.deviceName ?: tv.deviceId) }
+                                        )
                                     }
                                 }
                             }
@@ -376,5 +410,33 @@ fun DetailScreen(
                 }
             }
         }
+    }
+}
+
+/** Accion secundaria minimalista: icono en un circulo tenue con la etiqueta
+ * debajo. [active] (p.ej. ya esta en Mi lista) lo pinta en el azul de acento. */
+@Composable
+private fun ActionItem(icon: Int, label: String, onClick: () -> Unit, active: Boolean = false) {
+    val tint = if (active) MaterialTheme.colorScheme.primary else Color(0xFFE8E9EB)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Box(
+            Modifier.size(48.dp).clip(CircleShape).background(Color(0x1FFFFFFF)),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.material3.Icon(
+                androidx.compose.ui.res.painterResource(icon),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(label, color = if (active) tint else Color(0xFFA9B0BD), fontSize = 12.sp, maxLines = 1)
     }
 }

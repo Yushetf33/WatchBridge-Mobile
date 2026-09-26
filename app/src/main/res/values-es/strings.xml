@@ -131,4 +131,8 @@
     <string name="trakt_import_close_button">Listo</string>
     <string name="card_badge_series">SERIE</string>
     <string name="hero_view">Ver</string>
+    <string name="action_trailer">Tráiler</string>
+    <string name="action_send_to_tv">Enviar a TV</string>
+    <string name="action_player">Reproductor</string>
+    <string name="detail_trailer_not_found">No se encontró tráiler de este título</string>
 </resources>

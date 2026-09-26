@@ -133,4 +133,8 @@
     <string name="trakt_import_close_button">Done</string>
     <string name="card_badge_series">SERIES</string>
     <string name="hero_view">View</string>
+    <string name="action_trailer">Trailer</string>
+    <string name="action_send_to_tv">Send to TV</string>
+    <string name="action_player">Player</string>
+    <string name="detail_trailer_not_found">No trailer found for this title</string>
 </resources>
