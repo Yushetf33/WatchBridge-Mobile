@@ -139,4 +139,11 @@
     <string name="detail_trailer_not_found">No trailer found for this title</string>
     <string name="watchlist_added">Added to My list</string>
     <string name="watchlist_removed">Removed from My list</string>
+    <string name="tab_calendar">Calendar</string>
+    <string name="calendar_today">Today</string>
+    <string name="calendar_filter_all">All</string>
+    <string name="calendar_empty_day">Nothing this day</string>
+    <string name="calendar_empty_hint">Add series and movies to My list (or watch some) and their releases show up here.</string>
+    <string name="calendar_release">Release</string>
+    <string name="calendar_loading_error">Couldn\'t load the calendar — check your connection</string>
 </resources>

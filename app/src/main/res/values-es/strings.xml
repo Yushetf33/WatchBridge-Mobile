@@ -137,4 +137,11 @@
     <string name="detail_trailer_not_found">No se encontró tráiler de este título</string>
     <string name="watchlist_added">Añadida a Mi lista</string>
     <string name="watchlist_removed">Quitada de Mi lista</string>
+    <string name="tab_calendar">Calendario</string>
+    <string name="calendar_today">Hoy</string>
+    <string name="calendar_filter_all">Todo</string>
+    <string name="calendar_empty_day">Nada este día</string>
+    <string name="calendar_empty_hint">Añade series y películas a Mi lista (o ve alguna) y sus estrenos saldrán aquí.</string>
+    <string name="calendar_release">Estreno</string>
+    <string name="calendar_loading_error">No se pudo cargar el calendario — revisa tu conexión</string>
 </resources>

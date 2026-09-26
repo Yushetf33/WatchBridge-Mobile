@@ -73,7 +73,7 @@ enum class Category { MOVIES, SERIES, WATCHLIST }
  * Películas/Series/Mi lista (no algo escondido en "Más"), y "Más" queda
  * solo para lo que de verdad es ajustes (app de destino, Referidos,
  * Dispositivos, cerrar sesión). */
-enum class BottomTab { MOVIES, SERIES, WATCHLIST, HISTORY, MORE }
+enum class BottomTab { MOVIES, SERIES, WATCHLIST, HISTORY, CALENDAR, MORE }
 
 private fun BottomTab.toCategory(): Category? = when (this) {
     BottomTab.MOVIES -> Category.MOVIES
@@ -88,6 +88,7 @@ private fun labelFor(tab: BottomTab) = when (tab) {
     BottomTab.SERIES -> stringResource(R.string.tab_series)
     BottomTab.WATCHLIST -> stringResource(R.string.tab_watchlist)
     BottomTab.HISTORY -> stringResource(R.string.history_title)
+    BottomTab.CALENDAR -> stringResource(R.string.tab_calendar)
     BottomTab.MORE -> stringResource(R.string.tab_more)
 }
 
@@ -96,6 +97,7 @@ private fun iconFor(tab: BottomTab) = when (tab) {
     BottomTab.SERIES -> R.drawable.ic_nav_series
     BottomTab.WATCHLIST -> R.drawable.ic_nav_watchlist
     BottomTab.HISTORY -> R.drawable.ic_nav_history
+    BottomTab.CALENDAR -> R.drawable.ic_nav_calendar
     BottomTab.MORE -> R.drawable.ic_nav_settings
 }
 
@@ -498,6 +500,7 @@ fun HomeScreen(
                         onLoggedOut()
                     }
                 )
+                BottomTab.CALENDAR -> CalendarContent(onOpenDetail = { mediaPath, tmdbId -> onOpenDetail(mediaPath, tmdbId, null) })
                 BottomTab.HISTORY -> HistoryContent(
                     uiState = historyState,
                     onClick = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, null) },

@@ -370,6 +370,80 @@ object TmdbClient {
         }
     }
 
+    /** Un estreno del calendario: un episodio con fecha (serie) o el estreno de
+     * una pelicula. */
+    data class ScheduleEvent(
+        val date: String, // yyyy-MM-dd
+        val tmdbId: Int,
+        val mediaPath: String,
+        val title: String,
+        val posterPath: String?,
+        val overview: String?,
+        val subtitle: String? // "T2 · E5 — Titulo del episodio"; null en peliculas
+    )
+
+    private val scheduleCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<ScheduleEvent>>>()
+    private const val SCHEDULE_TTL_MS = 6L * 3600 * 1000
+
+    /** Fechas de emision de la ultima temporada (o la de la proxima emision) de
+     * una serie, o la fecha de estreno de una pelicula — para el calendario.
+     * Cacheado 6 h en memoria. Bloqueante (red): hilo de fondo. */
+    fun fetchSchedule(tmdbId: Int, mediaPath: String, fallbackTitle: String, fallbackPoster: String?): List<ScheduleEvent> {
+        val key = "$mediaPath:$tmdbId"
+        scheduleCache[key]?.let { (at, events) -> if (System.currentTimeMillis() - at < SCHEDULE_TTL_MS) return events }
+        val language = Locale.getDefault().toLanguageTag()
+        val events = try {
+            if (mediaPath == "movie") {
+                val json = getJson("https://api.themoviedb.org/3/movie/$tmdbId?api_key=$TMDB_API_KEY&language=$language")
+                val date = json?.optStringOrNull("release_date")
+                if (json == null || date == null || date.length < 10) emptyList()
+                else listOf(
+                    ScheduleEvent(
+                        date = date.take(10), tmdbId = tmdbId, mediaPath = "movie",
+                        title = json.optStringOrNull("title") ?: fallbackTitle,
+                        posterPath = json.optStringOrNull("poster_path") ?: fallbackPoster,
+                        overview = json.optStringOrNull("overview"), subtitle = null
+                    )
+                )
+            } else {
+                val show = getJson("https://api.themoviedb.org/3/tv/$tmdbId?api_key=$TMDB_API_KEY&language=$language")
+                if (show == null) emptyList() else {
+                    val season = show.optJSONObject("next_episode_to_air")?.optInt("season_number", 0)?.takeIf { it > 0 }
+                        ?: show.optJSONObject("last_episode_to_air")?.optInt("season_number", 0)?.takeIf { it > 0 }
+                        ?: show.optInt("number_of_seasons", 0).takeIf { it > 0 }
+                    val showTitle = show.optStringOrNull("name") ?: fallbackTitle
+                    val poster = show.optStringOrNull("poster_path") ?: fallbackPoster
+                    val episodes = season?.let {
+                        getJson("https://api.themoviedb.org/3/tv/$tmdbId/season/$it?api_key=$TMDB_API_KEY&language=$language")?.optJSONArray("episodes")
+                    }
+                    if (episodes == null) emptyList() else (0 until episodes.length()).mapNotNull { i ->
+                        val ep = episodes.getJSONObject(i)
+                        val date = ep.optStringOrNull("air_date") ?: return@mapNotNull null
+                        val name = ep.optStringOrNull("name")
+                        ScheduleEvent(
+                            date = date.take(10), tmdbId = tmdbId, mediaPath = "tv", title = showTitle, posterPath = poster,
+                            overview = ep.optStringOrNull("overview") ?: show.optStringOrNull("overview"),
+                            subtitle = "T${ep.optInt("season_number", season ?: 0)} · E${ep.optInt("episode_number", 0)}" + (name?.let { " — $it" } ?: "")
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo calendario ($key)", e)
+            return emptyList()
+        }
+        scheduleCache[key] = System.currentTimeMillis() to events
+        return events
+    }
+
+    private fun getJson(url: String): JSONObject? = try {
+        httpClient.newCall(Request.Builder().url(url).build()).execute().use { r ->
+            if (!r.isSuccessful) null else JSONObject(r.body?.string() ?: return@use null)
+        }
+    } catch (e: Exception) {
+        null
+    }
+
     /** Ficha completa para la pantalla de detalle propia (ver DetailScreen) —
      * llamada directa a TMDb, igual que [fetchRecommendations]: es solo
      * metadata para mostrar (póster, backdrop, nota, año, duración), no la
