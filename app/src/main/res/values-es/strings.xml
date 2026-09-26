@@ -129,4 +129,6 @@
     <string name="trakt_import_error_denied">La importación se rechazó en Trakt</string>
     <string name="trakt_import_error_generic">No se pudo importar de Trakt — inténtalo más tarde</string>
     <string name="trakt_import_close_button">Listo</string>
+    <string name="card_badge_series">SERIE</string>
+    <string name="hero_view">Ver</string>
 </resources>

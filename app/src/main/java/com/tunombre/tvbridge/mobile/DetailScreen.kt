@@ -2,6 +2,15 @@ package com.tunombre.tvbridge.mobile
 
 import android.app.Application
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -220,27 +229,58 @@ fun DetailScreen(
                                     model = "https://image.tmdb.org/t/p/w780$backdropOrPoster",
                                     contentDescription = details.title,
                                     contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 10f)
                                 )
                             } else {
                                 Box(
-                                    Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                                    Modifier.fillMaxWidth().aspectRatio(16f / 10f)
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
                                 )
                             }
-                            TextButton(onClick = onBack, modifier = Modifier.padding(4.dp)) {
-                                Text("← ${stringResource(R.string.action_back)}")
-                            }
+                            // Velo que funde el fondo con la pantalla (el logo/titulo va encima).
+                            Box(
+                                Modifier.matchParentSize().background(
+                                    Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0f to Color(0x800B0D12),
+                                            0.4f to Color.Transparent,
+                                            1f to MaterialTheme.colorScheme.background
+                                        )
+                                    )
+                                )
+                            )
+                            Text(
+                                "\u2190",
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                modifier = Modifier
+                                    .padding(12.dp)
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x990B0D12))
+                                    .clickable(onClick = onBack)
+                                    .wrapContentSize(Alignment.Center)
+                            )
                         }
 
-                        Column(Modifier.padding(20.dp)) {
-                            Text(details.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                if (details.voteAverage > 0) Text("⭐ ${"%.1f".format(details.voteAverage)}")
-                                details.year?.let { Text(it) }
-                                details.runtimeMinutes?.let { Text(stringResource(R.string.detail_runtime_minutes, it)) }
+                        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
+                            if (details.logoPath != null) {
+                                AsyncImage(
+                                    model = "https://image.tmdb.org/t/p/w500${details.logoPath}",
+                                    contentDescription = details.title,
+                                    contentScale = ContentScale.Fit,
+                                    alignment = Alignment.CenterStart,
+                                    modifier = Modifier.height(64.dp).fillMaxWidth(0.65f)
+                                )
+                            } else {
+                                Text(details.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                metaLine(TmdbClient.TmdbRecommendation(details.tmdbId, details.mediaPath, details.title, details.posterPath, 0.0, details.overview), details),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                             details.overview?.takeIf { it.isNotBlank() }?.let {
                                 Spacer(Modifier.height(12.dp))
                                 Text(it, style = MaterialTheme.typography.bodyMedium)
@@ -255,7 +295,11 @@ fun DetailScreen(
                             }
 
                             Spacer(Modifier.height(20.dp))
-                            Button(onClick = viewModel::watchNow, modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = viewModel::watchNow,
+                                shape = RoundedCornerShape(28.dp),
+                                modifier = Modifier.fillMaxWidth().height(52.dp)
+                            ) {
                                 Text(stringResource(R.string.detail_watch_now, uiState.defaultApp.label))
                             }
                             Spacer(Modifier.height(8.dp))
@@ -263,7 +307,7 @@ fun DetailScreen(
                                 TextButton(onClick = { showPlayerPicker = !showPlayerPicker }) {
                                     Text(stringResource(R.string.detail_change_player))
                                 }
-                                OutlinedButton(onClick = viewModel::toggleWatchlist) {
+                                OutlinedButton(onClick = viewModel::toggleWatchlist, shape = RoundedCornerShape(24.dp)) {
                                     Text(
                                         if (uiState.isInWatchlist) stringResource(R.string.detail_in_watchlist)
                                         else stringResource(R.string.detail_add_to_watchlist)

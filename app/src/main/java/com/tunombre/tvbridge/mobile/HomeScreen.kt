@@ -19,6 +19,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -86,12 +91,12 @@ private fun labelFor(tab: BottomTab) = when (tab) {
     BottomTab.MORE -> stringResource(R.string.tab_more)
 }
 
-private fun emojiFor(tab: BottomTab) = when (tab) {
-    BottomTab.MOVIES -> "🎬"
-    BottomTab.SERIES -> "📺"
-    BottomTab.WATCHLIST -> "🔖"
-    BottomTab.HISTORY -> "🕒"
-    BottomTab.MORE -> "⚙️"
+private fun iconFor(tab: BottomTab) = when (tab) {
+    BottomTab.MOVIES -> R.drawable.ic_nav_movies
+    BottomTab.SERIES -> R.drawable.ic_nav_series
+    BottomTab.WATCHLIST -> R.drawable.ic_nav_watchlist
+    BottomTab.HISTORY -> R.drawable.ic_nav_history
+    BottomTab.MORE -> R.drawable.ic_nav_settings
 }
 
 data class RowUi(
@@ -428,7 +433,7 @@ fun HomeScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                 BottomTab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = selectedTab == tab,
@@ -436,8 +441,15 @@ fun HomeScreen(
                             selectedTab = tab
                             tab.toCategory()?.let { viewModel.setCategory(it) }
                         },
-                        icon = { Text(emojiFor(tab)) },
-                        label = { Text(labelFor(tab)) }
+                        icon = { Icon(painterResource(iconFor(tab)), contentDescription = null, modifier = Modifier.size(24.dp)) },
+                        label = { Text(labelFor(tab)) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = Color(0x1FFFFFFF),
+                            unselectedIconColor = Color(0xFFA9B0BD),
+                            unselectedTextColor = Color(0xFFA9B0BD)
+                        )
                     )
                 }
             }
@@ -467,14 +479,6 @@ fun HomeScreen(
                     onLongClick = historyViewModel::toggleWatchlist
                 )
                 else -> Column(Modifier.fillMaxSize()) {
-                    if (uiState.category != Category.WATCHLIST) {
-                        Button(
-                            onClick = { viewModel.surpriseMe() },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                        ) {
-                            Text(stringResource(R.string.surprise_me_button))
-                        }
-                    }
                     when {
                         uiState.isLoading || (uiState.rows.isEmpty() && uiState.loadingMore) -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
@@ -494,10 +498,24 @@ fun HomeScreen(
                             }
                         }
                         else -> LazyColumn {
+                            // Cabecera destacada (no en Mi lista): los primeros titulos de
+                            // la primera fila de recomendaciones (o, si no, de la primera).
+                            if (uiState.category != Category.WATCHLIST) {
+                                val heroRow = uiState.rows.firstOrNull { !it.isContinueWatching } ?: uiState.rows.first()
+                                item(key = "hero") {
+                                    HeroCarousel(
+                                        items = heroRow.items.take(5),
+                                        onOpen = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, heroRow.seedTitle) },
+                                        onToggleWatchlist = viewModel::toggleWatchlist,
+                                        onSurprise = { viewModel.surpriseMe() }
+                                    )
+                                }
+                            }
                             items(uiState.rows, key = { it.id }) { row ->
                                 RecommendationRow(
                                     title = row.title,
                                     items = row.items,
+                                    showTypeBadge = row.isContinueWatching || uiState.category == Category.WATCHLIST,
                                     onClick = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, row.seedTitle) },
                                     onLongClick = { rec ->
                                         if (row.isContinueWatching) viewModel.removeFromContinueWatching(rec)

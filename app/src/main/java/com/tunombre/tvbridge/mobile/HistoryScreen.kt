@@ -116,7 +116,8 @@ fun HistoryContent(uiState: HistoryUiState, onClick: (TmdbClient.TmdbRecommendat
                         title = bucket.title,
                         items = bucket.items,
                         onClick = onClick,
-                        onLongClick = onLongClick
+                        onLongClick = onLongClick,
+                        showTypeBadge = true
                     )
                 }
             }

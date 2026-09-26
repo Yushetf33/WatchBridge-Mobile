@@ -76,7 +76,9 @@ data class TmdbDetails(
     val backdropPath: String?,
     val voteAverage: Double,
     val year: String?,
-    val runtimeMinutes: Int?
+    val runtimeMinutes: Int?,
+    val genres: List<String> = emptyList(),
+    val logoPath: String? = null
 ) {
     val type: MediaType get() = if (mediaPath == "tv") MediaType.SERIES else MediaType.MOVIE
 }
@@ -374,9 +376,26 @@ object TmdbClient {
      * resolución a imdb_id que sí pasa por el backend y exige suscripción.
      *
      * Bloqueante (red) — llamar siempre desde un hilo de fondo. */
+    private val detailsCache = java.util.concurrent.ConcurrentHashMap<String, TmdbDetails>()
+
+    /** Logo oficial del titulo: idioma del dispositivo, luego ingles, luego el
+     * primero. Solo PNG (los SVG no se pintan). */
+    private fun pickLogo(logos: org.json.JSONArray?): String? {
+        if (logos == null) return null
+        val candidates = (0 until logos.length()).map { logos.getJSONObject(it) }
+            .filter { it.optString("file_path").endsWith(".png") }
+        val lang = Locale.getDefault().language
+        val best = candidates.firstOrNull { it.optString("iso_639_1") == lang }
+            ?: candidates.firstOrNull { it.optString("iso_639_1") == "en" }
+            ?: candidates.firstOrNull()
+        return best?.optString("file_path")?.takeIf { it.isNotBlank() }
+    }
+
     fun fetchDetails(tmdbId: Int, mediaPath: String): TmdbDetails? {
+        val cacheKey = "$mediaPath:$tmdbId"
+        detailsCache[cacheKey]?.let { return it }
         val language = Locale.getDefault().toLanguageTag()
-        val url = "https://api.themoviedb.org/3/$mediaPath/$tmdbId?api_key=$TMDB_API_KEY&language=$language"
+        val url = "https://api.themoviedb.org/3/$mediaPath/$tmdbId?api_key=$TMDB_API_KEY&language=$language&append_to_response=images&include_image_language=${Locale.getDefault().language},en,null"
         val request = Request.Builder().url(url).build()
 
         return try {
@@ -399,6 +418,9 @@ object TmdbClient {
                 } else {
                     json.optInt("runtime", 0).takeIf { it > 0 }
                 }
+                val genres = json.optJSONArray("genres")?.let { arr ->
+                    (0 until arr.length()).mapNotNull { arr.getJSONObject(it).optString("name").takeIf { n -> n.isNotBlank() } }
+                }.orEmpty().take(2)
                 TmdbDetails(
                     tmdbId = tmdbId,
                     mediaPath = mediaPath,
@@ -408,8 +430,10 @@ object TmdbClient {
                     backdropPath = json.optStringOrNull("backdrop_path"),
                     voteAverage = json.optDouble("vote_average", 0.0),
                     year = year,
-                    runtimeMinutes = runtime
-                )
+                    runtimeMinutes = runtime,
+                    genres = genres,
+                    logoPath = pickLogo(json.optJSONObject("images")?.optJSONArray("logos"))
+                ).also { detailsCache[cacheKey] = it }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo detalles ($mediaPath/$tmdbId)", e)
