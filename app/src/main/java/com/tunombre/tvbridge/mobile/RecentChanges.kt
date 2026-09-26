@@ -34,7 +34,13 @@ object RecentChanges {
         val stale = json.keys().asSequence().filter { now - json.optLong(it, 0L) > WINDOW_MS }.toList()
         stale.forEach { json.remove(it) }
         json.put("$tmdbId:$mediaPath", now)
-        prefs.edit().putString(kind, json.toString()).apply()
+        // Un alta anula una baja reciente del mismo titulo (y viceversa): si no,
+        // quitar y volver a anadir dentro de la ventana hacia que la recarga
+        // siguiente diera el titulo por quitado y lo borrara.
+        val opposite = if (kind.endsWith(".added")) kind.removeSuffix(".added") + ".removed" else kind.removeSuffix(".removed") + ".added"
+        val oppositeJson = JSONObject(prefs.getString(opposite, null) ?: "{}")
+        oppositeJson.remove("$tmdbId:$mediaPath")
+        prefs.edit().putString(kind, json.toString()).putString(opposite, oppositeJson.toString()).apply()
     }
 
     private fun recent(context: Context, kind: String): Set<Pair<Int, String>> {
