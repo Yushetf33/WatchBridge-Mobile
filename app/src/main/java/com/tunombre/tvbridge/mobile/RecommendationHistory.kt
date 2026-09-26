@@ -39,6 +39,13 @@ object RecommendationHistory {
     private const val PREFS_NAME = "tvbridge_prefs"
     private const val KEY_HISTORY = "opened_titles_history"
 
+    // Todas las lecturas-modificaciones-escrituras de la copia local van bajo
+    // este candado. fetchMerged tarda (red) y antes leia la copia local ANTES
+    // de la llamada y la guardaba DESPUES: un alta hecha mientras tanto (p.ej.
+    // "+ Mi lista" con la pantalla aun cargando) no estaba ni en lo leido ni en
+    // lo que devolvia el servidor, y el guardado final la borraba.
+    private val lock = Any()
+
     // Igual que el límite en el backend (history-record.js) — de sobra para
     // variar las recomendaciones (que solo cogen unas pocas semillas, ver
     // RecommendationEngine) y para una pantalla de Historial real.
@@ -66,11 +73,12 @@ object RecommendationHistory {
         episodeTitle: String? = null
     ) {
         val watchedAt = System.currentTimeMillis()
-        val current = getAll(context).toMutableList()
-        current.removeAll { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
-        current.add(0, OpenedTitle(tmdbId, mediaPath, title, posterPath, overview, season, episode, episodeTitle, watchedAt))
-        val trimmed = current.take(MAX_ENTRIES)
-        saveLocal(context, trimmed)
+        synchronized(lock) {
+            val current = getAll(context).toMutableList()
+            current.removeAll { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
+            current.add(0, OpenedTitle(tmdbId, mediaPath, title, posterPath, overview, season, episode, episodeTitle, watchedAt))
+            saveLocal(context, current.take(MAX_ENTRIES))
+        }
 
         syncRecordToBackend(context, tmdbId, mediaPath, title, posterPath, overview, season, episode, episodeTitle)
     }
@@ -84,9 +92,12 @@ object RecommendationHistory {
      * que una petición de red posterior "resucite" la entrada recién
      * quitada. */
     fun remove(context: Context, tmdbId: Int, mediaPath: String): List<OpenedTitle> {
-        val current = getAll(context).filterNot { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
-        saveLocal(context, current)
-        RecentChanges.markRemoved(context, "history", tmdbId, mediaPath)
+        val current = synchronized(lock) {
+            getAll(context).filterNot { it.tmdbId == tmdbId && it.mediaPath == mediaPath }.also {
+                saveLocal(context, it)
+                RecentChanges.markRemoved(context, "history", tmdbId, mediaPath)
+            }
+        }
 
         val email = LicenseManager.getSavedEmail(context)
         if (email != null) {
@@ -160,9 +171,12 @@ object RecommendationHistory {
      *
      * Bloqueante (red) — llamar siempre desde un hilo de fondo. */
     fun fetchMerged(context: Context): List<OpenedTitle> {
-        val local = getAll(context)
         // Sin conexion: se cae a la copia local para no dejar la pantalla vacia.
-        val remote = fetchRemote(context) ?: return local
+        val remote = fetchRemote(context) ?: return getAll(context)
+        // La copia local se lee DESPUES de la red (y bajo el candado): asi entra
+        // lo visto mientras se esperaba al servidor.
+        return synchronized(lock) {
+        val local = getAll(context)
         // El servidor es la fuente de verdad: lo que ve el movil y lo que ve
         // la TV es lo mismo, y lo quitado en cualquier dispositivo desaparece
         // en todos. La copia local solo aporta lo visto hace un momento (aun
@@ -180,7 +194,8 @@ object RecommendationHistory {
         }
         val merged = byKey.values.sortedByDescending { it.watchedAt }.take(MAX_ENTRIES)
         saveLocal(context, merged)
-        return merged
+        merged
+        }
     }
 
     private fun fetchRemote(context: Context): List<OpenedTitle>? {

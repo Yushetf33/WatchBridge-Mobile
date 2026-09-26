@@ -31,15 +31,24 @@ object Watchlist {
     private val httpClient = sharedHttpClient
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
+    // Todas las lecturas-modificaciones-escrituras de la copia local van bajo
+    // este candado. fetchMerged tarda (red) y antes leia la copia local ANTES
+    // de la llamada y la guardaba DESPUES: un alta hecha mientras tanto (p.ej.
+    // "+ Mi lista" con la pantalla aun cargando) no estaba ni en lo leido ni en
+    // lo que devolvia el servidor, y el guardado final la borraba.
+    private val lock = Any()
+
     /** Añade un título al principio de la lista local (sin duplicados) y lo
      * manda al backend en segundo plano — mejor esfuerzo, igual que
      * RecommendationHistory.record. */
     fun add(context: Context, tmdbId: Int, mediaPath: String, title: String, posterPath: String?, overview: String?) {
-        val current = getAllLocal(context).toMutableList()
-        current.removeAll { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
-        current.add(0, WatchlistItem(tmdbId, mediaPath, title, posterPath, overview))
-        saveLocal(context, current)
-        RecentChanges.markAdded(context, "watchlist", tmdbId, mediaPath)
+        synchronized(lock) {
+            val current = getAllLocal(context).toMutableList()
+            current.removeAll { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
+            current.add(0, WatchlistItem(tmdbId, mediaPath, title, posterPath, overview))
+            saveLocal(context, current)
+            RecentChanges.markAdded(context, "watchlist", tmdbId, mediaPath)
+        }
 
         val email = LicenseManager.getSavedEmail(context) ?: return
         val deviceId = LicenseManager.getDeviceId(context)
@@ -64,9 +73,12 @@ object Watchlist {
      * podría alcanzar al backend antes de que la petición de borrado en
      * segundo plano haya terminado, y "resucitar" el ítem recién quitado. */
     fun remove(context: Context, tmdbId: Int, mediaPath: String): List<WatchlistItem> {
-        val current = getAllLocal(context).filterNot { it.tmdbId == tmdbId && it.mediaPath == mediaPath }
-        saveLocal(context, current)
-        RecentChanges.markRemoved(context, "watchlist", tmdbId, mediaPath)
+        val current = synchronized(lock) {
+            getAllLocal(context).filterNot { it.tmdbId == tmdbId && it.mediaPath == mediaPath }.also {
+                saveLocal(context, it)
+                RecentChanges.markRemoved(context, "watchlist", tmdbId, mediaPath)
+            }
+        }
 
         val email = LicenseManager.getSavedEmail(context)
         if (email != null) {
@@ -145,9 +157,12 @@ object Watchlist {
      *
      * Bloqueante (red) — llamar siempre desde un hilo de fondo. */
     fun fetchMerged(context: Context): List<WatchlistItem> {
-        val local = getAllLocal(context)
         // Sin conexion: se cae a la copia local para no dejar la pantalla vacia.
-        val remote = fetchRemote(context) ?: return local
+        val remote = fetchRemote(context) ?: return getAllLocal(context)
+        // La copia local se lee DESPUES de la red (y bajo el candado): asi entra
+        // lo anadido mientras se esperaba al servidor.
+        return synchronized(lock) {
+        val local = getAllLocal(context)
         // El servidor es la fuente de verdad (mismo criterio que
         // RecommendationHistory.fetchMerged): lo anadido/quitado en cualquier
         // dispositivo se ve igual en todos. Solo se respetan las altas y bajas
@@ -160,7 +175,8 @@ object Watchlist {
             .filterNot { (it.tmdbId to it.mediaPath) in removedRecently }
             .distinctBy { it.tmdbId to it.mediaPath }
         saveLocal(context, merged)
-        return merged
+        merged
+        }
     }
 
     private fun fetchRemote(context: Context): List<WatchlistItem>? {

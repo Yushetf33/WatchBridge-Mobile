@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -122,6 +123,11 @@ private fun HeroPage(
     onToggleWatchlist: (TmdbClient.TmdbRecommendation) -> Unit
 ) {
     val bg = MaterialTheme.colorScheme.background
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // Estado real de "Mi lista" (el boton alterna, asi que hay que verlo).
+    var inList by androidx.compose.runtime.remember(rec.tmdbId, rec.mediaPath) {
+        androidx.compose.runtime.mutableStateOf(Watchlist.isInList(ctx, rec.tmdbId, rec.mediaPath))
+    }
     Box(Modifier.fillMaxSize().clickable { onOpen(rec) }) {
         val image = d?.backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" }
             ?: rec.posterPath?.let { "https://image.tmdb.org/t/p/w780$it" }
@@ -186,10 +192,15 @@ private fun HeroPage(
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF0B0D12))
                 ) { Text(stringResource(R.string.hero_view), fontWeight = FontWeight.SemiBold) }
                 FilledTonalButton(
-                    onClick = { onToggleWatchlist(rec) },
+                    onClick = {
+                        onToggleWatchlist(rec)
+                        inList = Watchlist.isInList(ctx, rec.tmdbId, rec.mediaPath)
+                    },
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0x66FFFFFF), contentColor = Color.White)
-                ) { Text(stringResource(R.string.detail_add_to_watchlist)) }
+                ) {
+                    Text(stringResource(if (inList) R.string.detail_in_watchlist else R.string.detail_add_to_watchlist))
+                }
             }
         }
     }
