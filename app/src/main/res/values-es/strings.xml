@@ -144,4 +144,9 @@
     <string name="calendar_empty_hint">Añade series y películas a Mi lista (o ve alguna) y sus estrenos saldrán aquí.</string>
     <string name="calendar_release">Estreno</string>
     <string name="calendar_loading_error">No se pudo cargar el calendario — revisa tu conexión</string>
+    <string name="calendar_hide">Ocultar del calendario</string>
+    <string name="calendar_hidden_button">Ocultos (%1$d)</string>
+    <string name="calendar_hidden_title">Ocultos del calendario</string>
+    <string name="calendar_show">Mostrar</string>
+    <string name="calendar_close">Cerrar</string>
 </resources>

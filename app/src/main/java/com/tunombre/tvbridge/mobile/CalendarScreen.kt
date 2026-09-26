@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -80,6 +82,31 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(CalendarUiState())
     val state: StateFlow<CalendarUiState> = _state.asStateFlow()
 
+    // Titulos ocultos del calendario ("tv:1396" -> "Breaking Bad"), guardados en local.
+    private val prefs get() = context.getSharedPreferences("tvbridge_prefs", android.content.Context.MODE_PRIVATE)
+    private val _hidden = MutableStateFlow(readHidden())
+    val hidden: StateFlow<Map<String, String>> = _hidden.asStateFlow()
+
+    private fun readHidden(): Map<String, String> = try {
+        val json = org.json.JSONObject(prefs.getString(KEY_HIDDEN, null) ?: "{}")
+        json.keys().asSequence().associateWith { json.optString(it) }
+    } catch (e: Exception) {
+        emptyMap()
+    }
+
+    private fun saveHidden(map: Map<String, String>) {
+        prefs.edit().putString(KEY_HIDDEN, org.json.JSONObject(map).toString()).apply()
+        _hidden.value = map
+    }
+
+    fun hide(event: TmdbClient.ScheduleEvent) = saveHidden(_hidden.value + ("${event.mediaPath}:${event.tmdbId}" to event.title))
+
+    fun unhide(key: String) = saveHidden(_hidden.value - key)
+
+    private companion object {
+        const val KEY_HIDDEN = "calendar_hidden"
+    }
+
     fun load() {
         _state.update { it.copy(loading = it.events.isEmpty(), error = false) }
         viewModelScope.launch(Dispatchers.IO) {
@@ -118,6 +145,8 @@ fun CalendarContent(
     viewModel: CalendarViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val hidden by viewModel.hidden.collectAsState()
+    var showHiddenDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.load() }
 
     var monthOffset by remember { mutableStateOf(0) }
@@ -129,7 +158,7 @@ fun CalendarContent(
     val month = startOfMonth(monthOffset)
     val monthTitle = SimpleDateFormat("LLLL yyyy", Locale.getDefault()).format(month.time)
         .replaceFirstChar { it.uppercase() }
-    val filtered = state.events.filter { filter == 0 || (filter == 1 && it.mediaPath == "tv") || (filter == 2 && it.mediaPath == "movie") }
+    val filtered = state.events.filter { "${it.mediaPath}:${it.tmdbId}" !in hidden }.filter { filter == 0 || (filter == 1 && it.mediaPath == "tv") || (filter == 2 && it.mediaPath == "movie") }
     val byDate = filtered.groupBy { it.date }
 
     // Al cambiar de mes se selecciona su primer dia con estrenos (o el dia 1; en el
@@ -157,12 +186,17 @@ fun CalendarContent(
                 Text(monthTitle, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 TextButton(onClick = { goToMonth(monthOffset + 1) }) { Text("\u203A", fontSize = 26.sp) }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Fila desplazable: en un movil estrecho no caben chips + botones y el texto
+            // se partia ("Tod/ay"); asi cada uno mantiene su ancho y se desliza.
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 listOf(stringResource(R.string.calendar_filter_all), stringResource(R.string.tab_series), stringResource(R.string.tab_movies)).forEachIndexed { i, label ->
                     FilterChip(selected = filter == i, onClick = { filter = i }, label = { Text(label) })
                 }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = { goToMonth(0) }) { Text(stringResource(R.string.calendar_today)) }
+                TextButton(onClick = { goToMonth(0) }) { Text(stringResource(R.string.calendar_today), maxLines = 1, softWrap = false) }
             }
             // Cabecera de dias de la semana
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
@@ -210,10 +244,39 @@ fun CalendarContent(
             }
         }
         items(byDate[selectedIso].orEmpty()) { event ->
-            EventRow(event) { onOpenDetail(event.mediaPath, event.tmdbId) }
+            EventRow(event, onHide = { viewModel.hide(event) }) { onOpenDetail(event.mediaPath, event.tmdbId) }
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item {
+            // Al final de la lista, siempre a la vista (en la fila de filtros, en un
+            // movil estrecho quedaba fuera de pantalla).
+            if (hidden.isNotEmpty()) {
+                TextButton(onClick = { showHiddenDialog = true }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                    Text(stringResource(R.string.calendar_hidden_button, hidden.size), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
     }
+
+    if (showHiddenDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showHiddenDialog = false },
+            title = { Text(stringResource(R.string.calendar_hidden_title)) },
+            text = {
+                Column {
+                    hidden.entries.forEach { (key, name) ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = { viewModel.unhide(key) }) { Text(stringResource(R.string.calendar_show)) }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showHiddenDialog = false }) { Text(stringResource(R.string.calendar_close)) } }
+        )
+    }
+    // Sin ocultos ya no hay nada que gestionar: se cierra solo.
+    LaunchedEffect(hidden.isEmpty()) { if (hidden.isEmpty()) showHiddenDialog = false }
 }
 
 @Composable
@@ -264,7 +327,8 @@ private fun DayCell(
 }
 
 @Composable
-private fun EventRow(event: TmdbClient.ScheduleEvent, onClick: () -> Unit) {
+private fun EventRow(event: TmdbClient.ScheduleEvent, onHide: () -> Unit, onClick: () -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Top
@@ -290,6 +354,15 @@ private fun EventRow(event: TmdbClient.ScheduleEvent, onClick: () -> Unit) {
             event.overview?.takeIf { it.isNotBlank() }?.let {
                 Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+        Box {
+            TextButton(onClick = { menuOpen = true }) { Text("\u22EE", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(stringResource(R.string.calendar_hide)) },
+                    onClick = { menuOpen = false; onHide() }
+                )
             }
         }
     }

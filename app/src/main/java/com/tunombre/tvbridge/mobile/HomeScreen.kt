@@ -22,6 +22,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.MaterialTheme
@@ -469,7 +471,17 @@ fun HomeScreen(
                             tab.toCategory()?.let { viewModel.setCategory(it) }
                         },
                         icon = { Icon(painterResource(iconFor(tab)), contentDescription = null, modifier = Modifier.size(24.dp)) },
-                        label = { Text(labelFor(tab)) },
+                        label = {
+                            // Una linea, sin partir palabras: el tamano baja solo si la
+                            // etiqueta no cabe en el ancho de cada pestana (movil estrecho).
+                            androidx.compose.foundation.text.BasicText(
+                                labelFor(tab),
+                                style = androidx.compose.ui.text.TextStyle(color = androidx.compose.material3.LocalContentColor.current),
+                                maxLines = 1,
+                                softWrap = false,
+                                autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 12.sp)
+                            )
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,

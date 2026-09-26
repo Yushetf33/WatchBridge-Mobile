@@ -146,4 +146,9 @@
     <string name="calendar_empty_hint">Add series and movies to My list (or watch some) and their releases show up here.</string>
     <string name="calendar_release">Release</string>
     <string name="calendar_loading_error">Couldn\'t load the calendar — check your connection</string>
+    <string name="calendar_hide">Hide from calendar</string>
+    <string name="calendar_hidden_button">Hidden (%1$d)</string>
+    <string name="calendar_hidden_title">Hidden from calendar</string>
+    <string name="calendar_show">Show</string>
+    <string name="calendar_close">Close</string>
 </resources>
