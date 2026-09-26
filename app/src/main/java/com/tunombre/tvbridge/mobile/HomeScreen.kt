@@ -540,7 +540,7 @@ fun HomeScreen(
                                 RecommendationRow(
                                     title = row.title,
                                     items = row.items,
-                                    showTypeBadge = row.isContinueWatching || uiState.category == Category.WATCHLIST,
+                                    showTypeBadge = uiState.category == Category.WATCHLIST,
                                     onClick = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, row.seedTitle) },
                                     onLongClick = { rec ->
                                         if (row.isContinueWatching) viewModel.removeFromContinueWatching(rec)
