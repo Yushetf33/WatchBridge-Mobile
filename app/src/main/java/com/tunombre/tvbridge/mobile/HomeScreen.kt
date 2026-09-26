@@ -303,8 +303,21 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         val inList = Watchlist.isInList(context, rec.tmdbId, rec.mediaPath)
         if (inList) Watchlist.remove(context, rec.tmdbId, rec.mediaPath)
         else Watchlist.add(context, rec.tmdbId, rec.mediaPath, rec.title, rec.posterPath, rec.overview)
+        android.widget.Toast.makeText(
+            context,
+            if (inList) R.string.watchlist_removed else R.string.watchlist_added,
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
         watchlist = Watchlist.getLocal(context).map { it.toTmdbRecommendation() }
         rebuildRows(_uiState.value.category)
+    }
+
+    /** Vuelta a Inicio desde otra pantalla (p.ej. la ficha, donde se pudo
+     * anadir algo a Mi lista): relee de local, sin red, para que Inicio y Mi
+     * lista reflejen ya el cambio sin esperar a otra carga. */
+    fun refreshLocal() {
+        watchlist = Watchlist.getLocal(context).map { it.toTmdbRecommendation() }
+        if (!_uiState.value.isLoading) rebuildRows(_uiState.value.category)
     }
 
     /** Mantener pulsado sobre una tarjeta de "Continuar viendo": la quita
@@ -428,6 +441,18 @@ fun HomeScreen(
         }
         activity.lifecycle.addObserver(observer)
         onDispose { activity.lifecycle.removeObserver(observer) }
+    }
+
+    // Al volver a esta pantalla desde otra (p.ej. la ficha) se relee lo local.
+    // Aqui SI interesa el lifecycle del NavBackStackEntry (ver el OJO de
+    // arriba: es justo lo que se quiere, y no hace red).
+    val entryLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(entryLifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshLocal()
+        }
+        entryLifecycle.addObserver(observer)
+        onDispose { entryLifecycle.removeObserver(observer) }
     }
 
     Scaffold(

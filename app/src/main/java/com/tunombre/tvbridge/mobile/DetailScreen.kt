@@ -202,7 +202,12 @@ class DetailViewModel(app: Application) : AndroidViewModel(app) {
         val inList = _uiState.value.isInWatchlist
         if (inList) Watchlist.remove(context, details.tmdbId, details.mediaPath)
         else Watchlist.add(context, details.tmdbId, details.mediaPath, details.title, details.posterPath, details.overview)
-        _uiState.update { it.copy(isInWatchlist = !inList) }
+        android.widget.Toast.makeText(
+            context,
+            if (inList) R.string.watchlist_removed else R.string.watchlist_added,
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+        _uiState.update { it.copy(isInWatchlist = Watchlist.isInList(context, details.tmdbId, details.mediaPath)) }
     }
 }
 

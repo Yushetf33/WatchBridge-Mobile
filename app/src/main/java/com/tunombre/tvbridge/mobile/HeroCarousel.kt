@@ -33,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -74,16 +76,30 @@ fun HeroCarousel(
     }
 
     val pagerState = rememberPagerState(pageCount = { items.size })
+    // Momento del ultimo toque: la rotacion automatica se pausa unos segundos
+    // tras tocar la cabecera (un toque a un boton justo cuando la pagina
+    // cambia sola se perdia).
+    val lastTouch = remember { LongArray(1) }
     LaunchedEffect(items.size) {
         while (items.size > 1) {
             delay(HERO_ROTATE_MS)
-            if (!pagerState.isScrollInProgress) {
+            val idle = System.currentTimeMillis() - lastTouch[0] > HERO_TOUCH_PAUSE_MS
+            if (idle && !pagerState.isScrollInProgress) {
                 pagerState.animateScrollToPage((pagerState.currentPage + 1) % items.size)
             }
         }
     }
 
-    Box(Modifier.fillMaxWidth().height(HERO_HEIGHT)) {
+    Box(
+        Modifier.fillMaxWidth().height(HERO_HEIGHT).pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) {
+                    awaitPointerEvent(PointerEventPass.Initial)
+                    lastTouch[0] = System.currentTimeMillis()
+                }
+            }
+        }
+    ) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             val rec = items[page]
             val d = details["${rec.mediaPath}:${rec.tmdbId}"]
@@ -221,3 +237,4 @@ fun metaLine(rec: TmdbClient.TmdbRecommendation, d: TmdbDetails?): String {
 
 private val HERO_HEIGHT = 380.dp
 private const val HERO_ROTATE_MS = 6000L
+private const val HERO_TOUCH_PAUSE_MS = 10_000L
