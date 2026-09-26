@@ -214,7 +214,7 @@ fun CalendarContent(
                 repeat(7) { col ->
                     val day = row * 7 + col - leading + 1
                     if (day < 1 || day > daysInMonth) {
-                        Spacer(Modifier.weight(1f).aspectRatio(if (isTablet) 1.1f else 0.85f))
+                        Spacer(Modifier.weight(1f).aspectRatio(if (isTablet) 0.95f else 0.85f))
                     } else {
                         val iso = String.format(Locale.US, "%04d-%02d-%02d", month.get(Calendar.YEAR), month.get(Calendar.MONTH) + 1, day)
                         DayCell(
@@ -292,7 +292,7 @@ private fun DayCell(
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = modifier
-            .aspectRatio(if (isTablet) 1.1f else 0.85f)
+            .aspectRatio(if (isTablet) 0.95f else 0.85f)
             .padding(2.dp)
             .clip(shape)
             .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
@@ -308,19 +308,50 @@ private fun DayCell(
             color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
         if (events.isNotEmpty()) {
-            if (isTablet && events.first().posterPath != null) {
-                AsyncImage(
-                    model = "https://image.tmdb.org/t/p/w154${events.first().posterPath}",
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(36.dp).clip(RoundedCornerShape(6.dp))
-                )
-            }
-            Row(Modifier.align(Alignment.BottomCenter), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                events.take(3).forEach {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(if (it.mediaPath == "tv") SeriesColor else MovieColor))
+            if (isTablet) {
+                // Tablet: carteles en miniatura (los mismos de las pestanas Peliculas/Series),
+                // hasta dos por dia y "+N" si hay mas; una barrita del color del tipo debajo
+                // de cada uno (azul serie, ambar pelicula).
+                Row(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(top = 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    // Con un solo estreno se centra con el MISMO ancho que cada uno de dos
+                    // (si no, un cartel unico ocupaba toda la casilla y se salia).
+                    val shown = events.take(2)
+                    if (shown.size == 1) Spacer(Modifier.weight(0.5f))
+                    shown.forEach { ev ->
+                        Column(Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = ev.posterPath?.let { "https://image.tmdb.org/t/p/w154$it" },
+                                contentDescription = ev.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)
+                                    .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                            Box(Modifier.fillMaxWidth().height(3.dp).background(if (ev.mediaPath == "tv") SeriesColor else MovieColor))
+                        }
+                    }
+                    if (shown.size == 1) Spacer(Modifier.weight(0.5f))
                 }
-                if (events.size > 3) Text("+${events.size - 3}", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (events.size > 2) {
+                    Text(
+                        "+${events.size - 2}",
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Row(Modifier.align(Alignment.BottomCenter), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    events.take(3).forEach {
+                        Box(Modifier.size(6.dp).clip(CircleShape).background(if (it.mediaPath == "tv") SeriesColor else MovieColor))
+                    }
+                    if (events.size > 3) Text("+${events.size - 3}", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
