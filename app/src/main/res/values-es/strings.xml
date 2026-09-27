@@ -95,6 +95,13 @@
     <string name="more_check_update_button">🔄 Buscar actualizaciones</string>
     <string name="update_check_up_to_date">Ya tienes la última versión (%1$s)</string>
     <string name="update_check_downloading">Descargando actualización %1$s…</string>
+
+    <!-- Avisos de estrenos (ver PremiereNotifier) -->
+    <string name="premiere_notification_channel_name">Estrenos</string>
+    <string name="premiere_notification_title_today">Estreno hoy</string>
+    <string name="premiere_notification_title_tomorrow">Estreno mañana</string>
+    <string name="premiere_notification_text">%1$s</string>
+    <string name="premiere_notification_text_episode">%1$s — %2$s</string>
     <string name="update_check_network_error">No se pudo comprobar si hay actualizaciones — revisa tu conexión e inténtalo de nuevo</string>
 
     <!-- Ficha de detalle -->

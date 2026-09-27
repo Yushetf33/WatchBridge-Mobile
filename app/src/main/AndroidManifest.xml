@@ -14,8 +14,13 @@
          (UpdateChecker) sin pasar por Play Store. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Para poder avisar con una notificación de que la actualización ya
-         se descargó y está lista para instalar (Android 13+). -->
+         se descargó y está lista para instalar (Android 13+), y también
+         para los avisos de estrenos (ver PremiereNotifier). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Para volver a programar la comprobación diaria de estrenos tras un
+         reinicio del dispositivo (ver BootCompletedReceiver) — las alarmas
+         de AlarmManager no sobreviven un reinicio por sí solas. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- UpdateChecker.startDownload pide VISIBILITY_HIDDEN al DownloadManager
          (la propia app ya avisa cuando termina, no hace falta la notificación
          genérica del sistema) — sin este permiso, DownloadManager.enqueue()
@@ -96,6 +101,25 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Comprobación diaria de estrenos (ver PremiereScheduler/
+             PremiereNotifier) — disparada por una alarma interna de la
+             propia app, sin componente de otro proceso implicado. -->
+        <receiver
+            android:name=".PremiereCheckReceiver"
+            android:exported="false" />
+
+        <!-- Vuelve a programar la alarma de arriba tras un reinicio (ver
+             BootCompletedReceiver). BOOT_COMPLETED es un broadcast protegido
+             del sistema (requiere RECEIVE_BOOT_COMPLETED en quien lo envía),
+             así que exported="true" aquí es seguro. -->
+        <receiver
+            android:name=".BootCompletedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
