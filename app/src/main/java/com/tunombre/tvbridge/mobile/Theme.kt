@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 /** Misma paleta que la web de marketing (ver TvReccomendationBridge/docs/index.html)
  * — fondo oscuro, acento azul. Un color de marca reconocible entre la web,
@@ -34,6 +35,11 @@ private val TvBridgeColorScheme = darkColorScheme(
     surfaceVariant = BrandSurfaceVariant,
     onSurfaceVariant = BrandTextMuted,
     outline = BrandOutline,
+    outlineVariant = BrandOutline,
+    // Dialogos y menus como las tarjetas de la TV (surface_card).
+    surfaceContainer = BrandSurfaceVariant,
+    surfaceContainerHigh = BrandSurfaceVariant,
+    surfaceContainerHighest = BrandSurfaceVariant,
     error = BrandError,
     onError = Color.White
 )
@@ -42,6 +48,13 @@ private val TvBridgeColorScheme = darkColorScheme(
 fun TvBridgeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = TvBridgeColorScheme,
+        shapes = androidx.compose.material3.Shapes(
+            extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+            small = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+            medium = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+            large = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+        ),
         content = content
     )
 }

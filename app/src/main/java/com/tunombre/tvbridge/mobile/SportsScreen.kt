@@ -201,7 +201,7 @@ fun SportsTab(state: IptvUiState, onPlay: (IptvChannel, List<IptvChannel>?) -> U
                             if (liveOnly) stringResource(R.string.sports_live_only) else null,
                             stringResource(sportFilter?.labelRes ?: R.string.sports_all)
                         ).joinToString(" · ")
-                        OutlinedButton(onClick = { menuOpen = true }) {
+                        WbPillButton(onClick = { menuOpen = true }) {
                             Text(summary)
                             Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
                         }
@@ -309,7 +309,7 @@ private fun EventCard(event: SportEvent, badges: Pair<String?, String?>?, hasAle
     val live = event.startMs <= System.currentTimeMillis()
     val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(event.startMs))
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFF171B24)).padding(14.dp)
+        modifier.fillMaxWidth().wbCard().padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(event.sport.labelRes).uppercase(), color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)

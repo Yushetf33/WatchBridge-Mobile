@@ -204,7 +204,7 @@ fun TraktImportScreen(onBack: () -> Unit, viewModel: TraktImportViewModel = view
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Spacer(Modifier.height(20.dp))
-                    OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                    WbButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.trakt_import_close_button))
                     }
                 }

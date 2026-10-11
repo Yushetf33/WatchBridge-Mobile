@@ -194,7 +194,7 @@ fun CalendarContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 listOf(stringResource(R.string.calendar_filter_all), stringResource(R.string.tab_series), stringResource(R.string.tab_movies)).forEachIndexed { i, label ->
-                    FilterChip(selected = filter == i, onClick = { filter = i }, label = { Text(label) })
+                    WbTab(filter == i, label, { filter = i })
                 }
                 TextButton(onClick = { goToMonth(0) }) { Text(stringResource(R.string.calendar_today), maxLines = 1, softWrap = false) }
             }

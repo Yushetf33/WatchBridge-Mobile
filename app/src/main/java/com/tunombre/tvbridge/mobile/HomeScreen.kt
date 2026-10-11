@@ -1,6 +1,14 @@
 package com.tunombre.tvbridge.mobile
 
 import android.app.Application
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -528,17 +536,23 @@ fun HomeScreen(
         onDispose { entryLifecycle.removeObserver(observer) }
     }
 
+    // Pantalla ancha (tablet, movil en horizontal): la barra lateral de la TV; estrecha: la barra de abajo.
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+    val selectTab: (BottomTab) -> Unit = { tab ->
+        selectedTab = tab
+        tab.toCategory()?.let { viewModel.setCategory(it) }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
+            if (!wide) Column {
+            HorizontalDivider(color = Wb.CardBorder, thickness = 1.dp)
             NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                 BottomTab.entries.filter { it != BottomTab.MORE }.forEach { tab ->
                     NavigationBarItem(
                         selected = selectedTab == tab,
-                        onClick = {
-                            selectedTab = tab
-                            tab.toCategory()?.let { viewModel.setCategory(it) }
-                        },
+                        onClick = { selectTab(tab) },
                         icon = { Icon(painterResource(iconFor(tab)), contentDescription = null, modifier = Modifier.size(24.dp)) },
                         label = {
                             // Una linea, sin partir palabras: el tamano baja solo si la
@@ -554,20 +568,24 @@ fun HomeScreen(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = Color(0x1FFFFFFF),
+                            indicatorColor = Wb.NavSelectedFill,
                             unselectedIconColor = Color(0xFFA9B0BD),
                             unselectedTextColor = Color(0xFFA9B0BD)
                         )
                     )
                 }
             }
+            }
         }
     ) { padding ->
+        Row(Modifier.padding(padding).fillMaxSize()) {
+        if (wide) WbSidebar(selectedTab, onSelect = selectTab, onOpenSettings = openSettings)
         Box(
             modifier = Modifier
-                .padding(padding)
+                .weight(1f)
                 .fillMaxSize()
         ) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalWideNav provides wide) {
             when (selectedTab) {
                 BottomTab.IPTV -> IptvScreen(
                     onOpenSettings = openSettings,
@@ -575,8 +593,11 @@ fun HomeScreen(
                 )
                 BottomTab.MORE -> Column(Modifier.fillMaxSize()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { selectedTab = tabBeforeSettings }) { Text("←") }
-                        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        if (!wide) TextButton(onClick = { selectedTab = tabBeforeSettings }) { Text("←") }
+                        Text(
+                            stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = if (wide) 16.dp else 0.dp, top = if (wide) 8.dp else 0.dp)
+                        )
                     }
                     Box(Modifier.weight(1f)) {
                     MorePanel(
@@ -660,7 +681,42 @@ fun HomeScreen(
                     }
                 }
             }
+            }
         }
+        }
+    }
+}
+
+/** Barra lateral de la TV para pantallas anchas: logo arriba, secciones con la pastilla azul en la elegida y Ajustes abajo. */
+@Composable
+private fun WbSidebar(selected: BottomTab, onSelect: (BottomTab) -> Unit, onOpenSettings: () -> Unit) {
+    Column(
+        Modifier.fillMaxHeight().width(232.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 12.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        androidx.compose.foundation.Image(
+            painter = painterResource(R.drawable.logo),
+            contentDescription = null,
+            modifier = Modifier.padding(start = 8.dp, bottom = 12.dp).size(48.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+        )
+        BottomTab.entries.filter { it != BottomTab.MORE }.forEach { tab ->
+            SidebarItem(painterResource(iconFor(tab)), labelFor(tab), selected == tab) { onSelect(tab) }
+        }
+        Spacer(Modifier.weight(1f))
+        SidebarItem(painterResource(R.drawable.ic_nav_settings), stringResource(R.string.settings_title), selected == BottomTab.MORE, onOpenSettings)
+    }
+}
+
+@Composable
+private fun SidebarItem(icon: androidx.compose.ui.graphics.painter.Painter, label: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
+    Row(
+        Modifier.fillMaxWidth().clip(shape).background(if (selected) Wb.NavSelectedFill else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = if (selected) Wb.Accent else Color(0xFFA9B0BD), modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(16.dp))
+        Text(label, color = if (selected) Wb.Accent else Color(0xFFD5D9E0), fontSize = 16.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
     }
 }
 
@@ -668,7 +724,7 @@ fun HomeScreen(
 @Composable
 internal fun SettingsGearRow(onOpenSettings: () -> Unit, trailing: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        androidx.compose.material3.IconButton(onClick = onOpenSettings) {
+        if (!LocalWideNav.current) androidx.compose.material3.IconButton(onClick = onOpenSettings) {
             Icon(painterResource(R.drawable.ic_nav_settings), contentDescription = stringResource(R.string.settings_title), tint = Color(0xFFA9B0BD), modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.weight(1f))
@@ -687,7 +743,7 @@ private fun GenreButton(
     var open by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    OutlinedButton(onClick = {
+    WbPillButton(onClick = {
         scope.launch {
             val loaded = loadGenres()
             if (loaded.isEmpty()) failed = true else { genres = loaded; open = true }
@@ -726,8 +782,7 @@ private fun GenreButton(
     }
 }
 
-/** Pestaña "Más": elegir la app de destino, acceso a Referidos/Dispositivos,
- * y cerrar sesión. */
+/** Ajustes al estilo de la TV: una tarjeta por fila con su icono, el valor a la derecha y la flecha; Cerrar sesion en rojo. */
 @Composable
 private fun MorePanel(
     selectedApp: PlayerApp,
@@ -739,57 +794,46 @@ private fun MorePanel(
     onLogout: () -> Unit
 ) {
     var confirmingLogout by remember { mutableStateOf(false) }
+    var pickingApp by remember { mutableStateOf(false) }
+    val moreContext = androidx.compose.ui.platform.LocalContext.current
 
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Text(stringResource(R.string.more_open_in_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        Text(
-            stringResource(R.string.more_open_in_subtitle),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-        )
-        PlayerAppSelector(selected = selectedApp, onSelect = onSelectApp)
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
-
-        OutlinedButton(onClick = onOpenReferral, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.more_referral_button))
-        }
-        Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.more_devices_button))
-        }
-        Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = onOpenTraktImport, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.more_trakt_import_button))
-        }
-        Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = onCheckForUpdate, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.more_check_update_button))
-        }
-        Spacer(Modifier.height(10.dp))
-        val moreContext = androidx.compose.ui.platform.LocalContext.current
-        OutlinedButton(
-            onClick = {
-                androidx.browser.customtabs.CustomTabsIntent.Builder().build()
-                    .launchUrl(moreContext, android.net.Uri.parse(PRIVACY_POLICY_URL))
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.privacy_policy_link))
-        }
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
-
-        OutlinedButton(
-            onClick = { confirmingLogout = true },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-        ) {
-            Text(stringResource(R.string.more_logout_button))
-        }
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp).widthIn(max = 720.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SettingRow(R.drawable.ic_set_play, stringResource(R.string.more_open_in_title), subtitle = stringResource(R.string.more_open_in_subtitle), value = selectedApp.label) { pickingApp = true }
+        SettingRow(R.drawable.ic_set_card, stringResource(R.string.more_referral_button).withoutLeadingEmoji(), onClick = onOpenReferral)
+        SettingRow(R.drawable.ic_set_server, stringResource(R.string.more_devices_button).withoutLeadingEmoji(), onClick = onOpenDevices)
+        SettingRow(R.drawable.ic_set_autoplay, stringResource(R.string.more_trakt_import_button).withoutLeadingEmoji(), onClick = onOpenTraktImport)
+        SettingRow(R.drawable.ic_set_update, stringResource(R.string.more_check_update_button).withoutLeadingEmoji(), value = "v" + BuildConfig.VERSION_NAME, onClick = onCheckForUpdate)
+        SettingRow(R.drawable.ic_set_visibility, stringResource(R.string.privacy_policy_link), onClick = {
+            androidx.browser.customtabs.CustomTabsIntent.Builder().build().launchUrl(moreContext, android.net.Uri.parse(PRIVACY_POLICY_URL))
+        })
+        Spacer(Modifier.height(8.dp))
+        SettingRow(R.drawable.ic_lock, stringResource(R.string.more_logout_button).withoutLeadingEmoji(), chevron = false, danger = true) { confirmingLogout = true }
     }
 
+    if (pickingApp) {
+        AlertDialog(
+            onDismissRequest = { pickingApp = false },
+            title = { Text(stringResource(R.string.more_open_in_title)) },
+            text = {
+                Column {
+                    PlayerApp.entries.forEach { app ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { pickingApp = false; onSelectApp(app) }.padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.RadioButton(selected = app == selectedApp, onClick = null)
+                            Spacer(Modifier.width(12.dp))
+                            Text(app.label)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { pickingApp = false }) { Text(stringResource(R.string.action_cancel)) } }
+        )
+    }
     if (confirmingLogout) {
         AlertDialog(
             onDismissRequest = { confirmingLogout = false },
@@ -805,21 +849,5 @@ private fun MorePanel(
                 TextButton(onClick = { confirmingLogout = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
-    }
-}
-
-@Composable
-private fun PlayerAppSelector(selected: PlayerApp, onSelect: (PlayerApp) -> Unit) {
-    LazyRow(
-        contentPadding = PaddingValues(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(PlayerApp.entries) { app ->
-            FilterChip(
-                selected = app == selected,
-                onClick = { onSelect(app) },
-                label = { Text(app.label) }
-            )
-        }
     }
 }

@@ -159,7 +159,7 @@ fun VodTab(source: IptvSource, kind: VodKind, viewModel: VodViewModel = viewMode
 private fun CategoryMenu(catalog: VodCatalog, selected: String?, onPick: (String?) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }) {
+        WbPillButton(onClick = { open = true }) {
             Text(
                 catalog.categories[selected] ?: stringResource(R.string.vod_all_categories),
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(110.dp)

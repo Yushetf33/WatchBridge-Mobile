@@ -109,7 +109,7 @@ fun HeroCarousel(
             FilledTonalButton(
                 onClick = onSurprise,
                 modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0x990B0D12), contentColor = Color.White)
+                colors = ButtonDefaults.filledTonalButtonColors(containerColor = Wb.Coral, contentColor = Color(0xFF0B0D12))
             ) {
                 Text(stringResource(R.string.surprise_me_button), fontSize = 13.sp)
             }

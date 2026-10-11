@@ -182,12 +182,12 @@ fun IptvScreen(
                 }
                 else -> Column(Modifier.fillMaxSize()) {
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = tab == IptvTab.CHANNELS, onClick = { tab = IptvTab.CHANNELS }, label = { Text(stringResource(R.string.iptv_tab_channels)) })
-                        FilterChip(selected = tab == IptvTab.SPORTS, onClick = { tab = IptvTab.SPORTS }, label = { Text(stringResource(R.string.iptv_tab_sports)) })
+                        WbTab(tab == IptvTab.CHANNELS, stringResource(R.string.iptv_tab_channels), { tab = IptvTab.CHANNELS })
+                        WbTab(tab == IptvTab.SPORTS, stringResource(R.string.iptv_tab_sports), { tab = IptvTab.SPORTS })
                         // Peliculas y Series: solo con una lista Xtream (los paneles las sirven por su API).
                         if (state.active?.isXtream == true) {
-                            FilterChip(selected = tab == IptvTab.MOVIES, onClick = { tab = IptvTab.MOVIES }, label = { Text(stringResource(R.string.tab_movies)) })
-                            FilterChip(selected = tab == IptvTab.SERIES, onClick = { tab = IptvTab.SERIES }, label = { Text(stringResource(R.string.tab_series)) })
+                            WbTab(tab == IptvTab.MOVIES, stringResource(R.string.tab_movies), { tab = IptvTab.MOVIES })
+                            WbTab(tab == IptvTab.SERIES, stringResource(R.string.tab_series), { tab = IptvTab.SERIES })
                         }
                     }
                     when (tab) {
@@ -277,13 +277,13 @@ private fun ChannelsList(state: IptvUiState, vm: IptvViewModel, onPlay: (IptvCha
         )
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
-                FilterChip(selected = state.group == null && !state.favoritesOnly, onClick = { vm.setGroup(null) }, label = { Text(stringResource(R.string.iptv_group_all)) })
+                WbTab(state.group == null && !state.favoritesOnly, stringResource(R.string.iptv_group_all), { vm.setGroup(null) })
             }
             item {
-                FilterChip(selected = state.favoritesOnly, onClick = { vm.setFavoritesOnly(!state.favoritesOnly) }, label = { Text("★ " + stringResource(R.string.iptv_group_favorites)) })
+                WbTab(state.favoritesOnly, "★ " + stringResource(R.string.iptv_group_favorites), { vm.setFavoritesOnly(!state.favoritesOnly) })
             }
             items(groups) { g ->
-                FilterChip(selected = state.group == g, onClick = { vm.setGroup(g) }, label = { Text(g, maxLines = 1) })
+                WbTab(state.group == g, g, { vm.setGroup(g) })
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -307,10 +307,10 @@ internal fun ChannelRow(channel: IptvChannel, favorite: Boolean, epgVersion: Int
     val (current, next) = remember(channel, epgVersion, now / 60_000) { IptvRepository.nowNext(channel, now) }
     val format = remember { DateFormat.getTimeInstance(DateFormat.SHORT) }
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth().wbCard(14).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF1B2030)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF0F2429)), contentAlignment = Alignment.Center) {
             if (channel.logoUrl != null) {
                 AsyncImage(model = channel.logoUrl, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(4.dp))
             } else {
