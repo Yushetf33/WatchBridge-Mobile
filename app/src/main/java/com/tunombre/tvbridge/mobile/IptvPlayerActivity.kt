@@ -151,14 +151,17 @@ class IptvPlayerActivity : ComponentActivity() {
                 audioTracks.intValue = tracks.groups.count { g -> g.type == C.TRACK_TYPE_AUDIO && g.isSupported }
                 val videoMime = tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_VIDEO && it.isSelected }?.getTrackFormat(0)?.sampleMimeType
                 val software = videoMime == androidx.media3.common.MimeTypes.VIDEO_MPEG2 && Mpeg2Native.available
+                if (software) {
+                    // La forma de la imagen sale del flujo (4:3 o 16:9); si no la declara, la TDT es 16:9 (720x576 "anamorfico").
+                    val format = tracks.groups.first { it.type == C.TRACK_TYPE_VIDEO && it.isSelected }.getTrackFormat(0)
+                    val declared = if (format.width > 0 && format.height > 0) format.width * format.pixelWidthHeightRatio / format.height else 0f
+                    glFrame?.setAspectRatio(if (format.pixelWidthHeightRatio != 1f && declared > 0f) declared else 16f / 9f)
+                }
                 glFrame?.visibility = if (software) View.VISIBLE else View.INVISIBLE
                 // El PlayerView tapa el video con un fondo negro hasta que ve el primer fotograma; con el de software no hay que taparlo.
                 playerView?.setShutterBackgroundColor(if (software) android.graphics.Color.TRANSPARENT else android.graphics.Color.BLACK)
             }
 
-            override fun onVideoSizeChanged(size: androidx.media3.common.VideoSize) {
-                if (size.width > 0 && size.height > 0) glFrame?.setAspectRatio(size.width * size.pixelWidthHeightRatio / size.height)
-            }
 
             override fun onPlayerError(error: PlaybackException) {
                 if (tryNextUrl(error)) return

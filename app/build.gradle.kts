@@ -44,8 +44,8 @@ android {
         applicationId = "com.tunombre.tvbridge.mobile"
         minSdk = 24
         targetSdk = 36
-        versionCode = 32
-        versionName = "1.1.1"
+        versionCode = 33
+        versionName = "1.1.2"
 
         if (!project.hasProperty("noNative")) {
             ndk {

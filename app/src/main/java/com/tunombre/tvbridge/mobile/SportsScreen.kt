@@ -17,13 +17,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -189,11 +191,31 @@ fun SportsTab(state: IptvUiState, onPlay: (IptvChannel, List<IptvChannel>?) -> U
             }
             sports.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             else -> {
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item { FilterChip(selected = liveOnly, onClick = { liveOnly = !liveOnly }, label = { Text(stringResource(R.string.sports_live_only)) }) }
-                    item { FilterChip(selected = sportFilter == null, onClick = { sportFilter = null }, label = { Text(stringResource(R.string.sports_all)) }) }
-                    items(presentSports) { s ->
-                        FilterChip(selected = sportFilter == s, onClick = { sportFilter = if (sportFilter == s) null else s }, label = { Text(stringResource(s.labelRes)) })
+                var menuOpen by remember { mutableStateOf(false) }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box {
+                        val summary = listOfNotNull(
+                            if (liveOnly) stringResource(R.string.sports_live_only) else null,
+                            stringResource(sportFilter?.labelRes ?: R.string.sports_all)
+                        ).joinToString(" · ")
+                        OutlinedButton(onClick = { menuOpen = true }) { Text("⏷  $summary") }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text((if (liveOnly) "✓  " else "") + stringResource(R.string.sports_live_only)) },
+                                onClick = { liveOnly = !liveOnly; menuOpen = false }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text((if (sportFilter == null) "✓  " else "") + stringResource(R.string.sports_all)) },
+                                onClick = { sportFilter = null; menuOpen = false }
+                            )
+                            presentSports.forEach { sport ->
+                                DropdownMenuItem(
+                                    text = { Text((if (sportFilter == sport) "✓  " else "") + stringResource(sport.labelRes)) },
+                                    onClick = { sportFilter = sport; menuOpen = false }
+                                )
+                            }
+                        }
                     }
                 }
                 Text(
@@ -224,7 +246,7 @@ fun SportsTab(state: IptvUiState, onPlay: (IptvChannel, List<IptvChannel>?) -> U
                                     badges = sports.badges[event.key],
                                     hasAlert = alertTick >= 0 && event.channels.any { SportsAlerts.isScheduled(context, it.key, event.startMs) },
                                     modifier = Modifier.combinedClickable(
-                                        onClick = { if (event.channels.size == 1) onPlay(event.channels[0], event.channels) else choose = event },
+                                        onClick = { if (event.channels.size == 1) onPlay(event.channels[0], zapList(shown, event, event.channels[0])) else choose = event },
                                         onLongClick = { if (event.startMs > System.currentTimeMillis()) alertFor = event }
                                     )
                                 )
@@ -243,7 +265,7 @@ fun SportsTab(state: IptvUiState, onPlay: (IptvChannel, List<IptvChannel>?) -> U
             text = {
                 Column {
                     event.channels.forEach { c ->
-                        TextButton(onClick = { choose = null; onPlay(c, event.channels) }, modifier = Modifier.fillMaxWidth()) { Text(c.name) }
+                        TextButton(onClick = { choose = null; onPlay(c, zapList(shown, event, c)) }, modifier = Modifier.fillMaxWidth()) { Text(c.name) }
                     }
                 }
             },
@@ -271,6 +293,10 @@ fun SportsTab(state: IptvUiState, onPlay: (IptvChannel, List<IptvChannel>?) -> U
         )
     }
 }
+
+/** Canales entre los que saltan anterior/siguiente al abrir un evento: uno por cada evento de la lista (el elegido, en su evento). */
+private fun zapList(events: List<SportEvent>, chosen: SportEvent, channel: IptvChannel): List<IptvChannel> =
+    events.mapNotNull { if (it.key == chosen.key) channel else it.channels.firstOrNull() }.distinctBy { it.key }
 
 @Composable
 private fun EventCard(event: SportEvent, badges: Pair<String?, String?>?, hasAlert: Boolean, modifier: Modifier) {
