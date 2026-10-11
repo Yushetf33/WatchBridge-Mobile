@@ -62,7 +62,15 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.PlayerView
 import java.text.DateFormat
 import java.util.Date
+import coil.compose.AsyncImage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Reproductor de un canal IPTV a pantalla completa (horizontal): toca la pantalla para ver el nombre, lo que se emite
@@ -74,6 +82,20 @@ class IptvPlayerActivity : ComponentActivity() {
     private var channels: List<IptvChannel> = emptyList()
     private var index = 0
     private var altIndex = 0
+
+    // Marcador, goles y tarjetas del partido que emite el canal (si lo es); se actualiza solo mientras se ve.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var matchJob: Job? = null
+    private val matchPanel = mutableStateOf<MatchPanel?>(null)
+
+    private class MatchPanel(
+        val home: SportsDbClient.Team,
+        val away: SportsDbClient.Team,
+        val score: String,
+        val status: String,
+        val live: Boolean,
+        val events: List<String>
+    )
 
     private val channelState = mutableIntStateOf(0)
     private val errorState = mutableStateOf<String?>(null)
@@ -158,9 +180,37 @@ class IptvPlayerActivity : ComponentActivity() {
         audioTracks.intValue = 0
         channelState.intValue = index
         load(channels[index], channels[index].streamUrl)
+        trackMatch(channels[index])
+    }
+
+    /** Si ahora mismo el canal da un partido (por la guia), saca sus equipos y va pidiendo marcador, goles y tarjetas. */
+    private fun trackMatch(channel: IptvChannel) {
+        matchJob?.cancel()
+        matchPanel.value = null
+        val context = applicationContext
+        matchJob = scope.launch {
+            val program = IptvRepository.nowNext(channel).first ?: return@launch
+            if (!EpgManager.isSportsProgram(program)) return@launch
+            val teams = EpgManager.parseMatchTeams(program.title) ?: return@launch
+            SportsDbClient.attach(context)
+            WikipediaBadges.attach(context)
+            val sport = EpgManager.sportOf(program)
+            val (team1, team2) = SportsDbClient.resolveForDisplay(teams.first, teams.second, sport)
+            val ref = SportsDbClient.findEvent(team1, team2, program.startMs, sport, program.title) ?: return@launch
+            while (isActive) {
+                val state = SportsDbClient.fetchState(ref, team1.id, sport, fresh = true)
+                val timeline = if (sport == SportsDbClient.SOCCER) SportsDbClient.fetchTimeline(ref, team1.id, team2.id) else emptyList()
+                val headline = MatchUi.headline(context, state, program.startMs)
+                val lines = timeline.takeLast(7).reversed().map { MatchUi.eventLine(context, it, team1, team2) }
+                matchPanel.value = MatchPanel(team1, team2, headline.score, headline.status, headline.live, lines)
+                if (state?.phase == SportsDbClient.MatchPhase.FINISHED) break
+                delay(SportsDbClient.pollIntervalMs(ref, 30_000L))
+            }
+        }
     }
 
     override fun onDestroy() {
+        scope.cancel()
         player?.release()
         player = null
         if (pending === channels) pending = null
@@ -175,7 +225,7 @@ class IptvPlayerActivity : ComponentActivity() {
         // El panel se apaga solo a los pocos segundos.
         LaunchedEffect(overlay, current, audioDialog) {
             if (overlay && !audioDialog) {
-                delay(5000)
+                delay(if (matchPanel.value != null) 9000 else 5000)
                 overlay = false
             }
         }
@@ -196,6 +246,7 @@ class IptvPlayerActivity : ComponentActivity() {
             errorState.value?.let { message ->
                 Text(message, color = Color.White, modifier = Modifier.align(Alignment.Center).padding(24.dp))
             }
+            if (overlay) matchPanel.value?.let { panel -> MatchOverlay(panel, Modifier.align(Alignment.CenterEnd).padding(end = 24.dp)) }
             if (overlay) {
                 val (now, next) = IptvRepository.nowNext(channel)
                 val format = DateFormat.getTimeInstance(DateFormat.SHORT)
@@ -224,6 +275,41 @@ class IptvPlayerActivity : ComponentActivity() {
                 }
             }
             if (audioDialog) AudioDialog(exo) { audioDialog = false }
+        }
+    }
+
+    /** Marcador, minuto y los goles y tarjetas: a la derecha, sobre el video. */
+    @Composable
+    private fun MatchOverlay(panel: MatchPanel, modifier: Modifier) {
+        Column(
+            modifier.width(300.dp).background(Color(0xCC0B0D12), androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                TeamBadge(panel.home)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(panel.score, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    Text(panel.status, color = if (panel.live) Color(0xFFFF4D4F) else Color(0xFFB9BCC4), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+                TeamBadge(panel.away)
+            }
+            Spacer(Modifier.padding(top = 8.dp))
+            if (panel.events.isEmpty()) {
+                Text(stringResource(R.string.iptv_match_no_events), color = Color(0xFFB9BCC4), fontSize = 13.sp)
+            } else {
+                panel.events.forEach { line ->
+                    Text(line, color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp))
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun TeamBadge(team: SportsDbClient.Team) {
+        Box(Modifier.width(56.dp).padding(2.dp), contentAlignment = Alignment.Center) {
+            val url = team.badgeUrl
+            if (url != null) AsyncImage(model = url, contentDescription = team.name, modifier = Modifier.width(48.dp).padding(2.dp))
+            else Text(team.name.take(3).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
     }
 

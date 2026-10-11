@@ -65,7 +65,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class IptvTab { CHANNELS, SPORTS }
+enum class IptvTab { CHANNELS, SPORTS, MOVIES, SERIES }
 
 data class IptvUiState(
     val sources: List<IptvSource> = emptyList(),
@@ -184,10 +184,17 @@ fun IptvScreen(
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = tab == IptvTab.CHANNELS, onClick = { tab = IptvTab.CHANNELS }, label = { Text(stringResource(R.string.iptv_tab_channels)) })
                         FilterChip(selected = tab == IptvTab.SPORTS, onClick = { tab = IptvTab.SPORTS }, label = { Text(stringResource(R.string.iptv_tab_sports)) })
+                        // Peliculas y Series: solo con una lista Xtream (los paneles las sirven por su API).
+                        if (state.active?.isXtream == true) {
+                            FilterChip(selected = tab == IptvTab.MOVIES, onClick = { tab = IptvTab.MOVIES }, label = { Text(stringResource(R.string.tab_movies)) })
+                            FilterChip(selected = tab == IptvTab.SERIES, onClick = { tab = IptvTab.SERIES }, label = { Text(stringResource(R.string.tab_series)) })
+                        }
                     }
                     when (tab) {
                         IptvTab.CHANNELS -> ChannelsList(state, viewModel) { onPlay(it, null) }
                         IptvTab.SPORTS -> SportsTab(state, onPlay)
+                        IptvTab.MOVIES -> state.active?.let { VodTab(it, VodKind.MOVIES) }
+                        IptvTab.SERIES -> state.active?.let { VodTab(it, VodKind.SERIES) }
                     }
                 }
             }

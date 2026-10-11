@@ -256,4 +256,30 @@
 
     <string name="iptv_alert_schedule">Programar aviso</string>
     <string name="iptv_alert_cancel">Quitar aviso</string>
+
+    <!-- Marcador de un partido -->
+    <string name="iptv_sports_vs">VS</string>
+    <string name="iptv_match_minute">%1$s\'</string>
+    <string name="iptv_match_halftime">Descanso</string>
+    <string name="iptv_match_final">Final</string>
+    <string name="iptv_match_kickoff">Empieza a las %1$s</string>
+    <string name="iptv_match_live_no_score">EN DIRECTO</string>
+    <string name="iptv_match_own_goal">(p.p.)</string>
+    <string name="iptv_match_penalty">(pen.)</string>
+    <string name="iptv_match_no_events">Todavía sin goles ni tarjetas</string>
+    <string name="iptv_match_alert_goal">⚽ ¡GOL! %1$s\' %2$s</string>
+    <string name="iptv_match_alert_red">🟥 ¡ROJA! %1$s\' %2$s</string>
+
+    <!-- Peliculas y series de Xtream -->
+    <string name="vod_search_hint">Buscar</string>
+    <string name="vod_all_categories">Todas las categorías</string>
+    <string name="vod_count">%1$d títulos</string>
+    <string name="vod_no_results">Sin resultados</string>
+    <string name="vod_movies_error">No se pudieron cargar las películas de esta lista</string>
+    <string name="vod_series_error">No se pudieron cargar las series de esta lista</string>
+    <string name="vod_play">Reproducir</string>
+    <string name="vod_cast">Reparto: %1$s</string>
+    <string name="vod_director">Director: %1$s</string>
+    <string name="vod_season">Temporada %1$d</string>
+    <string name="vod_series_no_episodes">No hay episodios disponibles</string>
 </resources>
