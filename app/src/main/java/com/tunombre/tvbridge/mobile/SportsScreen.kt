@@ -22,6 +22,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.Icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -198,7 +201,10 @@ fun SportsTab(state: IptvUiState, onPlay: (IptvChannel, List<IptvChannel>?) -> U
                             if (liveOnly) stringResource(R.string.sports_live_only) else null,
                             stringResource(sportFilter?.labelRes ?: R.string.sports_all)
                         ).joinToString(" · ")
-                        OutlinedButton(onClick = { menuOpen = true }) { Text("⏷  $summary") }
+                        OutlinedButton(onClick = { menuOpen = true }) {
+                            Text(summary)
+                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                        }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
                                 text = { Text((if (liveOnly) "✓  " else "") + stringResource(R.string.sports_live_only)) },
