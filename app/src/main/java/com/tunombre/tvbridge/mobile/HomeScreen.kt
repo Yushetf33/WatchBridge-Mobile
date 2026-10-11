@@ -687,36 +687,49 @@ fun HomeScreen(
     }
 }
 
-/** Barra lateral de la TV para pantallas anchas: logo arriba, secciones con la pastilla azul en la elegida y Ajustes abajo. */
+/**
+ * Barra lateral de la TV para pantallas anchas: logo arriba, secciones con la pastilla azul en la elegida y Ajustes abajo.
+ * En un movil girado (poca altura) es una barra estrecha con el icono sobre el nombre y las secciones se desplazan si no caben.
+ */
 @Composable
 private fun WbSidebar(selected: BottomTab, onSelect: (BottomTab) -> Unit, onOpenSettings: () -> Unit) {
+    val compact = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 480
     Column(
-        Modifier.fillMaxHeight().width(232.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 12.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        Modifier.fillMaxHeight().width(if (compact) 84.dp else 232.dp).background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = if (compact) 6.dp else 12.dp, vertical = if (compact) 6.dp else 16.dp)
     ) {
-        androidx.compose.foundation.Image(
-            painter = painterResource(R.drawable.logo),
-            contentDescription = null,
-            modifier = Modifier.padding(start = 8.dp, bottom = 12.dp).size(48.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-        )
-        BottomTab.entries.filter { it != BottomTab.MORE }.forEach { tab ->
-            SidebarItem(painterResource(iconFor(tab)), labelFor(tab), selected == tab) { onSelect(tab) }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 6.dp)) {
+            if (!compact) {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(R.drawable.logo),
+                    contentDescription = null,
+                    modifier = Modifier.padding(start = 8.dp, bottom = 12.dp).size(48.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                )
+            }
+            BottomTab.entries.filter { it != BottomTab.MORE }.forEach { tab ->
+                SidebarItem(painterResource(iconFor(tab)), labelFor(tab), selected == tab, compact) { onSelect(tab) }
+            }
         }
-        Spacer(Modifier.weight(1f))
-        SidebarItem(painterResource(R.drawable.ic_nav_settings), stringResource(R.string.settings_title), selected == BottomTab.MORE, onOpenSettings)
+        SidebarItem(painterResource(R.drawable.ic_nav_settings), stringResource(R.string.settings_title), selected == BottomTab.MORE, compact, onOpenSettings)
     }
 }
 
 @Composable
-private fun SidebarItem(icon: androidx.compose.ui.graphics.painter.Painter, label: String, selected: Boolean, onClick: () -> Unit) {
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
-    Row(
-        Modifier.fillMaxWidth().clip(shape).background(if (selected) Wb.NavSelectedFill else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 13.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null, tint = if (selected) Wb.Accent else Color(0xFFA9B0BD), modifier = Modifier.size(24.dp))
-        Spacer(Modifier.width(16.dp))
-        Text(label, color = if (selected) Wb.Accent else Color(0xFFD5D9E0), fontSize = 16.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+private fun SidebarItem(icon: androidx.compose.ui.graphics.painter.Painter, label: String, selected: Boolean, compact: Boolean, onClick: () -> Unit) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(if (compact) 16.dp else 28.dp)
+    val tint = if (selected) Wb.Accent else Color(0xFFA9B0BD)
+    val modifier = Modifier.fillMaxWidth().clip(shape).background(if (selected) Wb.NavSelectedFill else Color.Transparent).clickable(onClick = onClick)
+    if (compact) {
+        Column(modifier.padding(vertical = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+            Text(label, color = if (selected) Wb.Accent else Color(0xFFD5D9E0), fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+        }
+    } else {
+        Row(modifier.padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(16.dp))
+            Text(label, color = if (selected) Wb.Accent else Color(0xFFD5D9E0), fontSize = 16.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+        }
     }
 }
 
