@@ -27,12 +27,31 @@ android {
     namespace = "com.tunombre.tvbridge.mobile"
     compileSdk = 37
 
+    // Decodificadores de software MPEG-2 (video) y MP2 (audio) propios, los mismos que la app de TV (ver app/src/main/cpp):
+    // los canales de la TDT espanola los emiten asi y muchos moviles no traen decodificador MPEG-2. Solo ARM; para probar
+    // en un emulador x86 se compila sin ellos con -PnoNative.
+    if (!project.hasProperty("noNative")) {
+        ndkVersion = "25.1.8937393"
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.tunombre.tvbridge.mobile"
         minSdk = 24
         targetSdk = 36
-        versionCode = 31
-        versionName = "1.1.0"
+        versionCode = 32
+        versionName = "1.1.1"
+
+        if (!project.hasProperty("noNative")) {
+            ndk {
+                abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+            }
+        }
 
         // Mismo patrón que la app de TV: se lee de local.properties (no
         // versionado).

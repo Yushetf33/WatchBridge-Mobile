@@ -57,6 +57,10 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.video.VideoDecoderGLSurfaceView
+import androidx.media3.ui.AspectRatioFrameLayout
+import com.tunombre.tvbridge.Mpeg2Native
+import com.tunombre.tvbridge.WatchBridgeRenderersFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.PlayerView
@@ -101,6 +105,11 @@ class IptvPlayerActivity : ComponentActivity() {
     private val errorState = mutableStateOf<String?>(null)
     private val audioTracks = mutableIntStateOf(0)
 
+    // Video MPEG-2 (la TDT: La 1, La 2...) decodificado por software y dibujado en esta vista GL; solo visible con ese video.
+    private var glFrame: AspectRatioFrameLayout? = null
+    private var glView: VideoDecoderGLSurfaceView? = null
+    private var playerView: PlayerView? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val key = intent.getStringExtra(EXTRA_CHANNEL_KEY)
@@ -130,12 +139,25 @@ class IptvPlayerActivity : ComponentActivity() {
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun buildPlayer(): ExoPlayer {
-        val exo = ExoPlayer.Builder(this)
+        val renderers = WatchBridgeRenderersFactory(this, null, softwareMpeg2Video = true, softwareMp2First = true)
+        val exo = ExoPlayer.Builder(this, renderers)
             .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 30_000, 400, 2_500).setPrioritizeTimeOverSizeThresholds(true).build())
             .build()
+        val gl = VideoDecoderGLSurfaceView(this)
+        glView = gl
+        renderers.softwareRenderer?.let { exo.createMessage(it).setType(androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT).setPayload(gl).send() }
         exo.addListener(object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
                 audioTracks.intValue = tracks.groups.count { g -> g.type == C.TRACK_TYPE_AUDIO && g.isSupported }
+                val videoMime = tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_VIDEO && it.isSelected }?.getTrackFormat(0)?.sampleMimeType
+                val software = videoMime == androidx.media3.common.MimeTypes.VIDEO_MPEG2 && Mpeg2Native.available
+                glFrame?.visibility = if (software) View.VISIBLE else View.INVISIBLE
+                // El PlayerView tapa el video con un fondo negro hasta que ve el primer fotograma; con el de software no hay que taparlo.
+                playerView?.setShutterBackgroundColor(if (software) android.graphics.Color.TRANSPARENT else android.graphics.Color.BLACK)
+            }
+
+            override fun onVideoSizeChanged(size: androidx.media3.common.VideoSize) {
+                if (size.width > 0 && size.height > 0) glFrame?.setAspectRatio(size.width * size.pixelWidthHeightRatio / size.height)
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -234,12 +256,23 @@ class IptvPlayerActivity : ComponentActivity() {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
-                    PlayerView(ctx).apply {
+                    val view = PlayerView(ctx).apply {
                         useController = false
-                        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                         player = exo
                         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                         setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                    }
+                    playerView = view
+                    val frame = AspectRatioFrameLayout(ctx).apply {
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        visibility = View.INVISIBLE
+                        glView?.let { (it.parent as? android.view.ViewGroup)?.removeView(it); addView(it, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)) }
+                    }
+                    glFrame = frame
+                    FrameLayout(ctx).apply {
+                        addView(view)
+                        addView(frame, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT, android.view.Gravity.CENTER))
                     }
                 }
             )
