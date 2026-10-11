@@ -302,9 +302,97 @@ object TmdbClient {
         // separado del título: el título viaja también en el deep link al
         // reabrir (RecommendationOpenActivity) y al volver a grabar en el
         // historial, así que no debe llevar nada añadido.
-        val subtitle: String? = null
+        val subtitle: String? = null,
+        // Ids de genero de TMDb (ver [Genre]): solo vienen en las recomendaciones y en [discover]; vacio en el
+        // resto (historial, Mi lista...), y por eso el filtro por genero no los toca.
+        val genreIds: List<Int> = emptyList()
     ) {
         val type: MediaType get() = if (mediaPath == "tv") MediaType.SERIES else MediaType.MOVIE
+    }
+
+    /** Un genero de TMDb. Los ids de peliculas y de series NO son los mismos (p.ej. "Action & Adventure" solo
+     * existe en series), asi que la lista se pide por tipo, ver [fetchGenres]. */
+    data class Genre(val id: Int, val name: String)
+
+    /** Pasa el array `results` de TMDb (recomendaciones o discover) a tarjetas. */
+    internal fun parseRecommendations(results: org.json.JSONArray, mediaPath: String): List<TmdbRecommendation> {
+        val out = mutableListOf<TmdbRecommendation>()
+        for (i in 0 until results.length()) {
+            val r = results.optJSONObject(i) ?: continue
+            val id = r.optInt("id", 0)
+            val title = r.optString("title", r.optString("name", "")).takeIf { it.isNotBlank() } ?: continue
+            if (id <= 0) continue
+            val genres = r.optJSONArray("genre_ids")?.let { a -> (0 until a.length()).map { a.optInt(it) } }.orEmpty()
+            out.add(
+                TmdbRecommendation(
+                    id, mediaPath, title, r.optStringOrNull("poster_path"), r.optDouble("popularity", 0.0),
+                    r.optStringOrNull("overview"), genreIds = genres
+                )
+            )
+        }
+        return out
+    }
+
+    internal fun parseGenres(json: String?): List<Genre>? {
+        if (json.isNullOrBlank()) return null
+        return try {
+            val a = org.json.JSONArray(json)
+            (0 until a.length()).mapNotNull {
+                val g = a.optJSONObject(it) ?: return@mapNotNull null
+                val name = g.optString("name").trim()
+                if (g.optInt("id", 0) > 0 && name.isNotEmpty()) Genre(g.getInt("id"), name) else null
+            }.takeIf { it.isNotEmpty() }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Los generos de TMDb para [mediaPath] ("movie" o "tv") en el idioma del dispositivo. Se guardan en local la
+     * primera vez (casi nunca cambian). Bloqueante (red la primera vez): llamar desde un hilo de fondo. */
+    fun fetchGenres(context: android.content.Context, mediaPath: String): List<Genre> {
+        val language = Locale.getDefault().toLanguageTag()
+        val prefs = context.getSharedPreferences("tmdb_genres", android.content.Context.MODE_PRIVATE)
+        val key = "$mediaPath:$language"
+        parseGenres(prefs.getString(key, null))?.let { return it }
+        val url = "https://api.themoviedb.org/3/genre/$mediaPath/list?api_key=$TMDB_API_KEY&language=$language"
+        return try {
+            httpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                if (!response.isSuccessful) return emptyList()
+                val genres = JSONObject(response.body?.string() ?: return emptyList()).optJSONArray("genres") ?: return emptyList()
+                val parsed = parseGenres(genres.toString()) ?: return emptyList()
+                prefs.edit().putString(key, genres.toString()).apply()
+                parsed
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo generos ($mediaPath)", e)
+            emptyList()
+        }
+    }
+
+    // include_adult=false solo vale para peliculas: en series TMDb sigue devolviendo hentai y ecchi, asi que se
+    // excluyen tambien por palabras clave. %7C = "|" (o).
+    private const val ADULT_KEYWORDS = "198385%7C384581%7C195669%7C256466%7C155691%7C302868%7C298666"
+
+    /** Titulos de un genero, de discover de TMDb. [topRated] false = los mas populares; true = los mejor valorados
+     * (con un minimo de votos). Bloqueante (red). */
+    fun discover(mediaPath: String, genreId: Int, topRated: Boolean): List<TmdbRecommendation> {
+        val language = Locale.getDefault().toLanguageTag()
+        val sort = if (topRated) "vote_average.desc&vote_count.gte=${if (mediaPath == "tv") 300 else 500}" else "popularity.desc"
+        val url = "https://api.themoviedb.org/3/discover/$mediaPath?api_key=$TMDB_API_KEY&language=$language" +
+            "&with_genres=$genreId&sort_by=$sort&include_adult=false&without_keywords=$ADULT_KEYWORDS"
+        return try {
+            httpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "discover ($mediaPath/$genreId) fallo: ${response.code}")
+                    return emptyList()
+                }
+                val results = JSONObject(response.body?.string() ?: return emptyList()).optJSONArray("results") ?: return emptyList()
+                parseRecommendations(results, mediaPath)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error en discover ($mediaPath/$genreId)", e)
+            emptyList()
+        }
     }
 
     /** Títulos "más como este" para [tmdbId] (una entrada del historial de
@@ -324,15 +412,7 @@ object TmdbClient {
                 }
                 val body = response.body?.string() ?: return emptyList()
                 val results = JSONObject(body).optJSONArray("results") ?: return emptyList()
-                val out = mutableListOf<TmdbRecommendation>()
-                for (i in 0 until results.length()) {
-                    val r = results.getJSONObject(i)
-                    val title = r.optString("title", r.optString("name", "")).takeIf { it.isNotBlank() } ?: continue
-                    val posterPath = r.optStringOrNull("poster_path")
-                    val overview = r.optStringOrNull("overview")
-                    out.add(TmdbRecommendation(r.getInt("id"), mediaPath, title, posterPath, r.optDouble("popularity", 0.0), overview))
-                }
-                out
+                parseRecommendations(results, mediaPath)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo recomendaciones ($mediaPath/$tmdbId)", e)

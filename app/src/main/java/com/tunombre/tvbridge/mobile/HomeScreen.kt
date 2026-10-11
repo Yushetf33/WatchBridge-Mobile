@@ -42,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -122,6 +123,8 @@ data class HomeUiState(
     val rows: List<RowUi> = emptyList(),
     val selectedApp: PlayerApp = PlayerApp.NUVIO,
     val offline: Boolean = false,
+    // Genero elegido para la pestana activa (Peliculas o Series), null = sin filtro.
+    val genre: TmdbClient.Genre? = null,
     // Fase 2 de refresh() en curso: las filas de recomendaciones todavía
     // están llegando (no pintar "nada que recomendar" antes de tiempo).
     val loadingMore: Boolean = false
@@ -149,6 +152,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private var watchlist: List<TmdbClient.TmdbRecommendation> = emptyList()
     private var continueWatching: List<TmdbClient.TmdbRecommendation> = emptyList()
     private var upcomingEpisodes: List<TmdbClient.TmdbRecommendation> = emptyList()
+
+    // Lo mas popular / mejor valorado de cada genero elegido (discover de TMDb), guardado para no repetir la peticion.
+    private val discoverCache = HashMap<String, Pair<List<TmdbClient.TmdbRecommendation>, List<TmdbClient.TmdbRecommendation>>>()
 
     private val _uiState = MutableStateFlow(HomeUiState(selectedApp = Preferences.getSelectedApp(context)))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -251,6 +257,36 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         rebuildRows(category)
     }
 
+    private fun mediaPathOf(category: Category) = if (category == Category.MOVIES) "movie" else "tv"
+
+    /** Los generos para elegir en la pestana activa (bloqueante la primera vez: llamar desde un hilo de fondo). */
+    suspend fun genresForCurrentTab(): List<TmdbClient.Genre> = withContext(Dispatchers.IO) {
+        TmdbClient.fetchGenres(context, mediaPathOf(_uiState.value.category))
+    }
+
+    /** Elegir (o quitar, con null) el genero de la pestana activa: filtra las filas y trae lo mas popular y mejor
+     * valorado de ese genero de TMDb. */
+    fun setGenre(genre: TmdbClient.Genre?) {
+        val category = _uiState.value.category
+        if (category == Category.WATCHLIST) return
+        val mediaPath = mediaPathOf(category)
+        GenreFilter.set(context, mediaPath, genre)
+        rebuildRows(category)
+        if (genre == null) return
+        val key = "$mediaPath:${genre.id}"
+        if (discoverCache.containsKey(key)) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val popular = TmdbClient.discover(mediaPath, genre.id, topRated = false)
+            val topRated = TmdbClient.discover(mediaPath, genre.id, topRated = true)
+            if (popular.isEmpty() && topRated.isEmpty()) return@launch
+            discoverCache[key] = popular to topRated
+            withContext(Dispatchers.Main) {
+                // Solo si el usuario sigue en la misma pestana y con el mismo genero.
+                if (_uiState.value.category == category && GenreFilter.get(context, mediaPath)?.id == genre.id) rebuildRows(category)
+            }
+        }
+    }
+
     fun setPlayerApp(app: PlayerApp) {
         Preferences.setSelectedApp(context, app)
         _uiState.update { it.copy(selectedApp = app) }
@@ -276,6 +312,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             if (series.isNotEmpty()) rows += RowUi("wl_series", context.getString(R.string.tab_series), series)
         } else {
             val wantedMediaPath = if (category == Category.MOVIES) "movie" else "tv"
+            val genre = GenreFilter.get(context, wantedMediaPath)
             val cwForTab = continueWatching.filter { it.mediaPath == wantedMediaPath }
             if (cwForTab.isNotEmpty()) {
                 rows += RowUi("continue_watching", context.getString(R.string.row_continue_watching), cwForTab, isContinueWatching = true)
@@ -284,11 +321,29 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             if (upcomingForTab.isNotEmpty()) {
                 rows += RowUi("upcoming_episodes", context.getString(R.string.row_upcoming_episodes), upcomingForTab)
             }
-            val topPicks = recommendations?.let { if (category == Category.MOVIES) it.movieTopPicks else it.seriesTopPicks } ?: emptyList()
+            // Con un genero elegido todo lo que se recomienda se limita a ese genero, y se le suman las filas de "lo mas
+            // popular / mejor valorado" de TMDb de ese genero: asi hay contenido aunque el historial tenga poco.
+            val topPicks = GenreFilter.filter(
+                recommendations?.let { if (category == Category.MOVIES) it.movieTopPicks else it.seriesTopPicks } ?: emptyList(),
+                genre
+            )
             if (topPicks.isNotEmpty()) {
-                rows += RowUi("top_picks", context.getString(R.string.row_top_picks), topPicks)
+                val title = if (genre == null) context.getString(R.string.row_top_picks)
+                else context.getString(R.string.row_top_picks_genre, genre.name)
+                rows += RowUi("top_picks", title, topPicks)
             }
-            val seedRows = recommendations?.let { if (category == Category.MOVIES) it.movieRows else it.seriesRows } ?: emptyList()
+            val genreRows = if (genre == null) null else discoverCache["$wantedMediaPath:${genre.id}"]
+            if (genre != null && genreRows != null) {
+                val seen = (continueWatching.map { it.tmdbId to it.mediaPath } + topPicks.map { it.tmdbId to it.mediaPath }).toSet()
+                val popular = genreRows.first.filter { (it.tmdbId to it.mediaPath) !in seen }
+                val topRated = genreRows.second.filter { (it.tmdbId to it.mediaPath) !in seen }
+                if (popular.isNotEmpty()) rows += RowUi("genre_popular", context.getString(R.string.genre_row_popular, genre.name), popular)
+                if (topRated.isNotEmpty()) rows += RowUi("genre_top_rated", context.getString(R.string.genre_row_top_rated, genre.name), topRated)
+            }
+            val seedRows = GenreFilter.filterRows(
+                recommendations?.let { if (category == Category.MOVIES) it.movieRows else it.seriesRows } ?: emptyList(),
+                genre
+            )
             seedRows.forEachIndexed { index, seedRow ->
                 rows += RowUi(
                     "seed_$index",
@@ -298,7 +353,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
         }
-        _uiState.update { it.copy(isLoading = false, category = category, rows = rows) }
+        val tabGenre = if (category == Category.WATCHLIST) null else GenreFilter.get(context, mediaPathOf(category))
+        _uiState.update { it.copy(isLoading = false, category = category, rows = rows, genre = tabGenre) }
     }
 
     /** Mantener pulsado sobre una tarjeta normal: alterna Mi lista — mismo
@@ -538,6 +594,11 @@ fun HomeScreen(
                             }
                         }
                         else -> LazyColumn {
+                            if (uiState.category != Category.WATCHLIST) {
+                                item(key = "genre_button") {
+                                    GenreButton(genre = uiState.genre, loadGenres = { viewModel.genresForCurrentTab() }, onPick = viewModel::setGenre)
+                                }
+                            }
                             // Cabecera destacada (no en Mi lista): los primeros titulos de
                             // la primera fila de recomendaciones (o, si no, de la primera).
                             if (uiState.category != Category.WATCHLIST) {
@@ -568,6 +629,58 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+/** Boton "Genero: X" (arriba a la derecha de Peliculas y Series): abre la lista de generos de TMDb con "Ninguno" primero. */
+@Composable
+private fun GenreButton(
+    genre: TmdbClient.Genre?,
+    loadGenres: suspend () -> List<TmdbClient.Genre>,
+    onPick: (TmdbClient.Genre?) -> Unit
+) {
+    var genres by remember { mutableStateOf<List<TmdbClient.Genre>?>(null) }
+    var open by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), contentAlignment = Alignment.CenterEnd) {
+        OutlinedButton(onClick = {
+            scope.launch {
+                val loaded = loadGenres()
+                if (loaded.isEmpty()) failed = true else { genres = loaded; open = true }
+            }
+        }) {
+            Text(stringResource(R.string.genre_button, genre?.name ?: stringResource(R.string.genre_none)))
+        }
+    }
+    if (open) {
+        val list = genres.orEmpty()
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(stringResource(R.string.genre_picker_title)) },
+            text = {
+                androidx.compose.foundation.lazy.LazyColumn {
+                    item {
+                        TextButton(onClick = { open = false; onPick(null) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.genre_none), fontWeight = if (genre == null) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                    items(list) { g ->
+                        TextButton(onClick = { open = false; onPick(g) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(g.name, fontWeight = if (genre?.id == g.id) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) } }
+        )
+    }
+    if (failed) {
+        AlertDialog(
+            onDismissRequest = { failed = false },
+            text = { Text(stringResource(R.string.genre_load_failed)) },
+            confirmButton = { TextButton(onClick = { failed = false }) { Text(stringResource(android.R.string.ok)) } }
+        )
     }
 }
 
