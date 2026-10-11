@@ -54,6 +54,14 @@
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.TvBridgeMobile">
 
+        <!-- Reproductor de canales IPTV, a pantalla completa y en horizontal. -->
+        <activity
+            android:name=".IptvPlayerActivity"
+            android:exported="false"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.TvBridgeMobile" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

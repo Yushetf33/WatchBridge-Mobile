@@ -174,4 +174,86 @@
     <string name="genre_row_popular">Populares en %1$s</string>
     <string name="genre_row_top_rated">Mejor valoradas en %1$s</string>
     <string name="row_top_picks_genre">Recomendado para ti · %1$s</string>
+
+    <!-- IPTV -->
+    <string name="tab_iptv">IPTV</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="iptv_tab_channels">Canales</string>
+    <string name="iptv_tab_sports">Eventos deportivos</string>
+    <string name="iptv_setup_title">Tu propia lista IPTV</string>
+    <string name="iptv_setup_body">Añade el enlace de tu lista M3U o tu acceso Xtream Codes. No se incluye ni se vende ningún canal: traes tu propia lista.</string>
+    <string name="iptv_add_list">Añadir una lista</string>
+    <string name="iptv_add_button">Añadir</string>
+    <string name="iptv_refresh">Actualizar lista</string>
+    <string name="iptv_delete_list">Borrar lista</string>
+    <string name="iptv_delete_title">¿Borrar \"%1$s\"?</string>
+    <string name="iptv_delete_body">La lista y sus favoritos se quitan solo de este dispositivo.</string>
+    <string name="iptv_search_hint">Buscar canales</string>
+    <string name="iptv_group_all">Todos</string>
+    <string name="iptv_group_favorites">Favoritos</string>
+    <string name="iptv_no_channels">No hay canales que mostrar</string>
+    <string name="iptv_no_epg">Sin guía</string>
+    <string name="iptv_mode_m3u">Enlace M3U</string>
+    <string name="iptv_mode_xtream">Xtream</string>
+    <string name="iptv_field_name">Nombre (opcional)</string>
+    <string name="iptv_field_url">Enlace M3U (http…)</string>
+    <string name="iptv_field_epg">Enlace de la guía (XMLTV, opcional)</string>
+    <string name="iptv_field_server">Servidor (p. ej. http://host:8080)</string>
+    <string name="iptv_field_user">Usuario</string>
+    <string name="iptv_field_pass">Contraseña</string>
+    <string name="iptv_error_network">No se pudo descargar la lista: revisa el enlace y la conexión</string>
+    <string name="iptv_error_empty">La lista no tiene canales</string>
+    <string name="iptv_player_error">No se pudo reproducir este canal</string>
+    <string name="iptv_player_back">Volver</string>
+    <string name="iptv_player_prev">Anterior</string>
+    <string name="iptv_player_next">Siguiente</string>
+    <string name="iptv_player_audio">Audio</string>
+    <string name="iptv_next_prefix">Después: %1$s</string>
+    <string name="iptv_audio_track_n">Audio %1$d</string>
+
+    <!-- Eventos deportivos -->
+    <string name="sports_live_badge">EN DIRECTO</string>
+    <string name="sports_live_only">En directo</string>
+    <string name="sports_live_only_on">✓ En directo</string>
+    <string name="sports_all">Todos los deportes</string>
+    <string name="sports_loading">Buscando eventos deportivos en tu guía…</string>
+    <string name="sports_empty">No se han encontrado eventos deportivos en la guía para las próximas 3 horas.</string>
+    <string name="sports_empty_live">Ahora mismo no se emite ningún evento deportivo.</string>
+    <string name="sports_no_epg">Tu lista no tiene guía de programación (EPG), así que no se pueden listar los eventos deportivos. Añade la URL de una guía en los ajustes de la lista.</string>
+    <string name="sports_today">Hoy</string>
+    <string name="sports_tomorrow">Mañana</string>
+    <string name="sports_choose_channel">Ver en…</string>
+    <string name="sports_channels_more">%1$s +%2$d</string>
+    <string name="sports_filter_title">Deporte</string>
+    <string name="sport_american_football">Fútbol americano</string>
+    <string name="sport_basketball">Baloncesto</string>
+    <string name="sport_baseball">Béisbol</string>
+    <string name="sport_ice_hockey">Hockey sobre hielo</string>
+    <string name="sport_rugby">Rugby</string>
+    <string name="sport_handball">Balonmano</string>
+    <string name="sport_volleyball">Voleibol</string>
+    <string name="sport_f1">Fórmula 1</string>
+    <string name="sport_motogp">MotoGP y motociclismo</string>
+    <string name="sport_motorsport">Motor</string>
+    <string name="sport_golf">Golf</string>
+    <string name="sport_tennis">Tenis</string>
+    <string name="sport_padel">Pádel</string>
+    <string name="sport_cycling">Ciclismo</string>
+    <string name="sport_combat">Deportes de combate</string>
+    <string name="sport_athletics">Atletismo</string>
+    <string name="sport_winter">Deportes de invierno</string>
+    <string name="sport_swimming">Natación y deportes acuáticos</string>
+    <string name="sport_cricket">Críquet</string>
+    <string name="sport_cue_sports">Dardos y snooker</string>
+    <string name="sport_olympics">Juegos Olímpicos</string>
+    <string name="sport_other_sports">Otros deportes</string>
+    <string name="sport_football">Fútbol</string>
+    <string name="sport_generic">Deportes</string>
+    <plurals name="sports_count">
+        <item quantity="one">%d evento</item>
+        <item quantity="other">%d eventos</item>
+    </plurals>
+
+    <string name="iptv_alert_schedule">Programar aviso</string>
+    <string name="iptv_alert_cancel">Quitar aviso</string>
 </resources>

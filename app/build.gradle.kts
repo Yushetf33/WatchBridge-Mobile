@@ -31,8 +31,8 @@ android {
         applicationId = "com.tunombre.tvbridge.mobile"
         minSdk = 24
         targetSdk = 36
-        versionCode = 30
-        versionName = "1.0.29"
+        versionCode = 31
+        versionName = "1.1.0"
 
         // Mismo patrón que la app de TV: se lee de local.properties (no
         // versionado).
@@ -128,6 +128,13 @@ dependencies {
     // propio PosterLoader con bitmaps a mano para Leanback; aquí no hace
     // falta reinventarlo, Coil ya se integra directo con Compose).
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Reproductor de los canales IPTV (mismas versiones que la app de TV). El extractor de MPEG-TS ya viene en
+    // media3-exoplayer.
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
+    implementation("androidx.media3:media3-ui:1.11.1")
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

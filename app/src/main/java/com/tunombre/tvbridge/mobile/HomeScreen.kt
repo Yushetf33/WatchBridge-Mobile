@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,7 +77,7 @@ enum class Category { MOVIES, SERIES, WATCHLIST }
  * Películas/Series/Mi lista (no algo escondido en "Más"), y "Más" queda
  * solo para lo que de verdad es ajustes (app de destino, Referidos,
  * Dispositivos, cerrar sesión). */
-enum class BottomTab { MOVIES, SERIES, WATCHLIST, HISTORY, CALENDAR, MORE }
+enum class BottomTab { MOVIES, SERIES, WATCHLIST, HISTORY, CALENDAR, IPTV, MORE }
 
 private fun BottomTab.toCategory(): Category? = when (this) {
     BottomTab.MOVIES -> Category.MOVIES
@@ -92,6 +93,7 @@ private fun labelFor(tab: BottomTab) = when (tab) {
     BottomTab.WATCHLIST -> stringResource(R.string.tab_watchlist)
     BottomTab.HISTORY -> stringResource(R.string.history_title)
     BottomTab.CALENDAR -> stringResource(R.string.tab_calendar)
+    BottomTab.IPTV -> stringResource(R.string.tab_iptv)
     BottomTab.MORE -> stringResource(R.string.tab_more)
 }
 
@@ -101,6 +103,7 @@ private fun iconFor(tab: BottomTab) = when (tab) {
     BottomTab.WATCHLIST -> R.drawable.ic_nav_watchlist
     BottomTab.HISTORY -> R.drawable.ic_nav_history
     BottomTab.CALENDAR -> R.drawable.ic_nav_calendar
+    BottomTab.IPTV -> R.drawable.ic_nav_iptv
     BottomTab.MORE -> R.drawable.ic_nav_settings
 }
 
@@ -458,7 +461,17 @@ fun HomeScreen(
     val historyState by historyViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedTab by remember { mutableStateOf(BottomTab.MOVIES) }
+    // Tocar el aviso de un evento deportivo abre la app directamente en IPTV.
+    var selectedTab by remember {
+        mutableStateOf(if ((context as? androidx.activity.ComponentActivity)?.intent?.getBooleanExtra(SportsAlerts.EXTRA_OPEN_IPTV, false) == true) BottomTab.IPTV else BottomTab.MOVIES)
+    }
+    // Ajustes ya no es una pestana de la barra de abajo: se abre con el engranaje de arriba y Atras vuelve a donde se estaba.
+    var tabBeforeSettings by remember { mutableStateOf(BottomTab.MOVIES) }
+    val openSettings = {
+        if (selectedTab != BottomTab.MORE) tabBeforeSettings = selectedTab
+        selectedTab = BottomTab.MORE
+    }
+    androidx.activity.compose.BackHandler(enabled = selectedTab == BottomTab.MORE) { selectedTab = tabBeforeSettings }
 
     val openFailedMessage = stringResource(R.string.home_open_failed)
     val notEnoughHistoryMessage = stringResource(R.string.home_not_enough_history)
@@ -519,7 +532,7 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
-                BottomTab.entries.forEach { tab ->
+                BottomTab.entries.filter { it != BottomTab.MORE }.forEach { tab ->
                     NavigationBarItem(
                         selected = selectedTab == tab,
                         onClick = {
@@ -556,7 +569,17 @@ fun HomeScreen(
                 .fillMaxSize()
         ) {
             when (selectedTab) {
-                BottomTab.MORE -> MorePanel(
+                BottomTab.IPTV -> IptvScreen(
+                    onOpenSettings = openSettings,
+                    onPlay = { channel, among -> IptvPlayerActivity.open(context, channel, among) }
+                )
+                BottomTab.MORE -> Column(Modifier.fillMaxSize()) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { selectedTab = tabBeforeSettings }) { Text("←") }
+                        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                    Box(Modifier.weight(1f)) {
+                    MorePanel(
                     selectedApp = uiState.selectedApp,
                     onSelectApp = viewModel::setPlayerApp,
                     onOpenReferral = onOpenReferral,
@@ -567,14 +590,28 @@ fun HomeScreen(
                         viewModel.logout()
                         onLoggedOut()
                     }
-                )
-                BottomTab.CALENDAR -> CalendarContent(onOpenDetail = { mediaPath, tmdbId -> onOpenDetail(mediaPath, tmdbId, null) })
-                BottomTab.HISTORY -> HistoryContent(
-                    uiState = historyState,
-                    onClick = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, null) },
-                    onLongClick = historyViewModel::toggleWatchlist
-                )
+                    )
+                    }
+                }
+                BottomTab.CALENDAR -> Column(Modifier.fillMaxSize()) {
+                    SettingsGearRow(openSettings)
+                    CalendarContent(onOpenDetail = { mediaPath, tmdbId -> onOpenDetail(mediaPath, tmdbId, null) })
+                }
+                BottomTab.HISTORY -> Column(Modifier.fillMaxSize()) {
+                    SettingsGearRow(openSettings)
+                    HistoryContent(
+                        uiState = historyState,
+                        onClick = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, null) },
+                        onLongClick = historyViewModel::toggleWatchlist
+                    )
+                }
                 else -> Column(Modifier.fillMaxSize()) {
+                    // Arriba, siempre visible: el engranaje de Ajustes a la izquierda y el boton de genero a la derecha.
+                    SettingsGearRow(openSettings) {
+                        if (uiState.category != Category.WATCHLIST) {
+                            GenreButton(genre = uiState.genre, loadGenres = { viewModel.genresForCurrentTab() }, onPick = viewModel::setGenre)
+                        }
+                    }
                     when {
                         uiState.isLoading || (uiState.rows.isEmpty() && uiState.loadingMore) -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
@@ -594,11 +631,6 @@ fun HomeScreen(
                             }
                         }
                         else -> LazyColumn {
-                            if (uiState.category != Category.WATCHLIST) {
-                                item(key = "genre_button") {
-                                    GenreButton(genre = uiState.genre, loadGenres = { viewModel.genresForCurrentTab() }, onPick = viewModel::setGenre)
-                                }
-                            }
                             // Cabecera destacada (no en Mi lista): los primeros titulos de
                             // la primera fila de recomendaciones (o, si no, de la primera).
                             if (uiState.category != Category.WATCHLIST) {
@@ -632,6 +664,18 @@ fun HomeScreen(
     }
 }
 
+/** Fila de arriba de cada pestana: el engranaje de Ajustes a la izquierda y, a la derecha, lo que cada pantalla ponga ([trailing]). */
+@Composable
+internal fun SettingsGearRow(onOpenSettings: () -> Unit, trailing: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.IconButton(onClick = onOpenSettings) {
+            Icon(painterResource(R.drawable.ic_nav_settings), contentDescription = stringResource(R.string.settings_title), tint = Color(0xFFA9B0BD), modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.weight(1f))
+        trailing()
+    }
+}
+
 /** Boton "Genero: X" (arriba a la derecha de Peliculas y Series): abre la lista de generos de TMDb con "Ninguno" primero. */
 @Composable
 private fun GenreButton(
@@ -643,15 +687,13 @@ private fun GenreButton(
     var open by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), contentAlignment = Alignment.CenterEnd) {
-        OutlinedButton(onClick = {
-            scope.launch {
-                val loaded = loadGenres()
-                if (loaded.isEmpty()) failed = true else { genres = loaded; open = true }
-            }
-        }) {
-            Text(stringResource(R.string.genre_button, genre?.name ?: stringResource(R.string.genre_none)))
+    OutlinedButton(onClick = {
+        scope.launch {
+            val loaded = loadGenres()
+            if (loaded.isEmpty()) failed = true else { genres = loaded; open = true }
         }
+    }) {
+        Text(stringResource(R.string.genre_button, genre?.name ?: stringResource(R.string.genre_none)))
     }
     if (open) {
         val list = genres.orEmpty()
