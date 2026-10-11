@@ -98,6 +98,16 @@
     <string name="update_check_up_to_date">You\'re on the latest version (%1$s)</string>
     <string name="update_check_downloading">Downloading update %1$s…</string>
 
+    <!-- IPTV schedule alerts sent from the TV (see MobileFcmService/IptvAlertNotifier) -->
+    <string name="iptv_alert_channel_name">TV schedule alerts</string>
+    <string name="iptv_alert_notif_title">%s is starting now!</string>
+    <string name="iptv_alert_notif_title_generic">A program is starting now!</string>
+    <string name="iptv_alert_notif_text">On %s</string>
+    <string name="iptv_alert_watch_now">Watch now</string>
+    <string name="iptv_alert_sent_toast">Sent to the TV</string>
+    <string name="iptv_alert_send_failed_toast">Couldn\'t reach the TV</string>
+    <string name="iptv_alert_no_session">Sign in first</string>
+
     <!-- Premiere notifications (see PremiereNotifier) -->
     <string name="premiere_notification_channel_name">Premieres</string>
     <string name="premiere_notification_title_today">Out today</string>
@@ -158,4 +168,12 @@
     <string name="calendar_hidden_title">Hidden from calendar</string>
     <string name="calendar_show">Show</string>
     <string name="calendar_close">Close</string>
+
+    <string name="genre_button">Genre: %1$s</string>
+    <string name="genre_picker_title">Choose a genre</string>
+    <string name="genre_none">None</string>
+    <string name="genre_load_failed">Couldn\'t load the genres — check your connection</string>
+    <string name="genre_row_popular">Popular in %1$s</string>
+    <string name="genre_row_top_rated">Top rated in %1$s</string>
+    <string name="row_top_picks_genre">Recommended for you · %1$s</string>
 </resources>

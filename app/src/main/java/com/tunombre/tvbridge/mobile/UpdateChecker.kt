@@ -225,7 +225,7 @@ object UpdateChecker {
         ensureNotificationChannel(context)
 
         val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.update_notification_ready_title))
             .setContentText(context.getString(R.string.update_notification_ready_text, version))
             .setContentIntent(pendingIntent)

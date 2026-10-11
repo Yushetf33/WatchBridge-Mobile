@@ -111,6 +111,24 @@
             android:name=".PremiereCheckReceiver"
             android:exported="false" />
 
+        <!-- Aviso de "el programa está a punto de empezar" mandado desde la
+             TV (ver MobileFcmService, IptvAlertNotifier) — mismo patrón que
+             TvBridgeFcmService en la app de TV. -->
+        <service
+            android:name=".MobileFcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Botón "Ver" del aviso de arriba (ver IptvAlertNotifier) — solo
+             lo dispara un PendingIntent creado por esta misma app (dentro
+             de la propia notificación), así que no hace falta exported="true". -->
+        <receiver
+            android:name=".IptvAlertVerReceiver"
+            android:exported="false" />
+
         <!-- Vuelve a programar la alarma de arriba tras un reinicio (ver
              BootCompletedReceiver). BOOT_COMPLETED es un broadcast protegido
              del sistema (requiere RECEIVE_BOOT_COMPLETED en quien lo envía),

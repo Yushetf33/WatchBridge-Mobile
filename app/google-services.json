@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "638517373269",
+    "project_id": "watchbridge-sideload",
+    "storage_bucket": "watchbridge-sideload.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:638517373269:android:61e0e5ec05527df12167dc",
+        "android_client_info": {
+          "package_name": "com.tunombre.tvbridge"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3Ua5TB_YuBnw42ebTya9cg4Kv0LNcVmk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:638517373269:android:337038b5b125ef162167dc",
+        "android_client_info": {
+          "package_name": "com.tunombre.tvbridge.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3Ua5TB_YuBnw42ebTya9cg4Kv0LNcVmk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:638517373269:android:94c7d7da5a32c26d2167dc",
+        "android_client_info": {
+          "package_name": "com.tunombre.tvbridge.play"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3Ua5TB_YuBnw42ebTya9cg4Kv0LNcVmk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

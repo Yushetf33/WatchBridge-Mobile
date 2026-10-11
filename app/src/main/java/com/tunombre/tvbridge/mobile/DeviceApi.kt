@@ -86,6 +86,49 @@ object DeviceApi {
             ?.optBoolean("ok", false) ?: false
     }
 
+    /** "Ver ahora" en el aviso de "el programa está a punto de empezar" (ver
+     * MobileFcmService/IptvAlertVerReceiver) — mismo mecanismo que
+     * [sendRemoteOpen], pero para un canal de IPTV en vez de un título de
+     * TMDb (ver RemoteOpenClient.PendingRemoteOpen.IptvChannel en la app de
+     * TV, que sabe reconocer type="iptv"). */
+    fun sendRemoteOpenIptv(
+        context: Context,
+        email: String,
+        targetDeviceId: String,
+        streamUrl: String,
+        channelName: String,
+        programTitle: String?
+    ): Boolean {
+        val body = JSONObject().apply {
+            put("email", email)
+            put("deviceId", LicenseManager.getDeviceId(context))
+            put("action", "remote_open_send")
+            put("targetDeviceId", targetDeviceId)
+            put("type", "iptv")
+            put("streamUrl", streamUrl)
+            put("channelName", channelName)
+            if (programTitle != null) put("programTitle", programTitle)
+        }
+        return runCatching { call(body) }
+            .onFailure { Log.e(TAG, "Error enviando canal de IPTV a la TV", it) }
+            .getOrNull()
+            ?.optBoolean("ok", false) ?: false
+    }
+
+    /** Envía (o actualiza) el token de FCM de este dispositivo, para recibir
+     * el aviso de "el programa está a punto de empezar" que manda la TV (ver
+     * MobileFcmService, IptvAlertVerReceiver) — best effort, un fallo aquí
+     * no rompe nada más de la app, solo ese aviso en concreto no llegaría. */
+    fun registerFcmToken(context: Context, email: String, fcmToken: String) {
+        val body = JSONObject().apply {
+            put("email", email)
+            put("deviceId", LicenseManager.getDeviceId(context))
+            put("action", "register_fcm_token")
+            put("fcmToken", fcmToken)
+        }
+        runCatching { call(body) }.onFailure { Log.e(TAG, "Error registrando token FCM", it) }
+    }
+
     /** true si se pudo eliminar. */
     fun removeDevice(context: Context, email: String, targetDeviceId: String): Boolean {
         val body = JSONObject().apply {

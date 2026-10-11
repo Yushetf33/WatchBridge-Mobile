@@ -5,6 +5,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// El plugin de Google Services falla el build entero si no encuentra
+// google-services.json — se aplica solo si ya existe, mismo motivo y mismo
+// patrón que en la app de TV (ver TvRecommendationBridge/app/build.gradle.kts).
+// El archivo hay que descargarlo aparte desde la consola de Firebase (añadir
+// una app Android con applicationId "com.tunombre.tvbridge.mobile" al mismo
+// proyecto "watchbridge-sideload" que ya usa la TV) — no es nada que se
+// pueda generar desde el código.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) {
@@ -20,8 +31,8 @@ android {
         applicationId = "com.tunombre.tvbridge.mobile"
         minSdk = 24
         targetSdk = 36
-        versionCode = 27
-        versionName = "1.0.26"
+        versionCode = 30
+        versionName = "1.0.29"
 
         // Mismo patrón que la app de TV: se lee de local.properties (no
         // versionado).
@@ -108,6 +119,11 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Recibir el aviso de "el programa está a punto de empezar" cuando lo
+    // manda la TV (ver MobileFcmService/DeviceApi.registerFcmToken) — mismo
+    // artefacto y versión que ya usa la app de TV, aunque aquí NO hace falta
+    // "sideloaded": el móvil siempre tiene Google Play Services de verdad.
+    implementation("com.google.firebase:firebase-messaging-ktx:24.1.2")
     // Carga de pósters en las tarjetas de Compose (la app de TV usa su
     // propio PosterLoader con bitmaps a mano para Leanback; aquí no hace
     // falta reinventarlo, Coil ya se integra directo con Compose).

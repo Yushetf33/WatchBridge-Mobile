@@ -42,8 +42,26 @@ class MainActivity : ComponentActivity() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         PremiereScheduler.schedule(this)
+        registerFcmTokenIfPossible()
 
         setContent { TvBridgeApp() }
+    }
+
+    // Pide el token actual de FCM al arrancar por si Firebase ya lo había
+    // generado antes de que MobileFcmService empezara a escuchar (mismo
+    // patrón que TvRecommendationAccessibilityService en la app de TV) —
+    // idempotente y best effort, así que no pasa nada por llamarlo en cada
+    // apertura ni porque falle (sin sesión iniciada, sin Play Services...).
+    private fun registerFcmTokenIfPossible() {
+        val email = LicenseManager.getSavedEmail(this) ?: return
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token -> Thread { DeviceApi.registerFcmToken(this, email, token) }.start() }
+        } catch (e: Exception) {
+            // Sin Google Play Services (raro en móvil, pero por si acaso) —
+            // el aviso de programación simplemente no llegará, nada más se
+            // rompe.
+        }
     }
 
     private companion object {
