@@ -61,8 +61,7 @@ import kotlinx.coroutines.withContext
 fun HeroCarousel(
     items: List<TmdbClient.TmdbRecommendation>,
     onOpen: (TmdbClient.TmdbRecommendation) -> Unit,
-    onToggleWatchlist: (TmdbClient.TmdbRecommendation) -> Unit,
-    onSurprise: (() -> Unit)?
+    onToggleWatchlist: (TmdbClient.TmdbRecommendation) -> Unit
 ) {
     if (items.isEmpty()) return
     val details = remember { mutableStateMapOf<String, TmdbDetails>() }
@@ -104,15 +103,6 @@ fun HeroCarousel(
             val rec = items[page]
             val d = details["${rec.mediaPath}:${rec.tmdbId}"]
             HeroPage(rec, d, onOpen, onToggleWatchlist)
-        }
-        if (onSurprise != null) {
-            FilledTonalButton(
-                onClick = onSurprise,
-                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(containerColor = Wb.Coral, contentColor = Color(0xFF0B0D12))
-            ) {
-                Text(stringResource(R.string.surprise_me_button), fontSize = 13.sp)
-            }
         }
         if (items.size > 1) {
             Row(

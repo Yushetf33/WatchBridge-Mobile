@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -630,7 +631,13 @@ fun HomeScreen(
                     // Arriba, siempre visible: el engranaje de Ajustes a la izquierda y el boton de genero a la derecha.
                     SettingsGearRow(openSettings) {
                         if (uiState.category != Category.WATCHLIST) {
-                            GenreButton(genre = uiState.genre, loadGenres = { viewModel.genresForCurrentTab() }, onPick = viewModel::setGenre)
+                            // Fijos arriba (fuera de la lista que se desplaza): Sorprendeme al lado de Genero.
+                            SurpriseButton(onClick = { viewModel.surpriseMe() })
+                            Spacer(Modifier.width(8.dp))
+                            GenreButton(
+                                genre = uiState.genre, loadGenres = { viewModel.genresForCurrentTab() }, onPick = viewModel::setGenre,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
                         }
                     }
                     when {
@@ -660,8 +667,7 @@ fun HomeScreen(
                                     HeroCarousel(
                                         items = heroRow.items.take(5),
                                         onOpen = { rec -> onOpenDetail(rec.mediaPath, rec.tmdbId, heroRow.seedTitle) },
-                                        onToggleWatchlist = viewModel::toggleWatchlist,
-                                        onSurprise = { viewModel.surpriseMe() }
+                                        onToggleWatchlist = viewModel::toggleWatchlist
                                     )
                                 }
                             }
@@ -745,24 +751,38 @@ internal fun SettingsGearRow(onOpenSettings: () -> Unit, trailing: @Composable a
     }
 }
 
+/** "Sorprendeme" (coral, como en la TV): elige un titulo al azar entre tus recomendaciones; va fijo arriba, al lado de Genero. */
+@Composable
+private fun SurpriseButton(onClick: () -> Unit) {
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Wb.Coral, contentColor = Color(0xFF0B0D12)),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Text(stringResource(R.string.surprise_me_button), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
 /** Boton "Genero: X" (arriba a la derecha de Peliculas y Series): abre la lista de generos de TMDb con "Ninguno" primero. */
 @Composable
 private fun GenreButton(
     genre: TmdbClient.Genre?,
     loadGenres: suspend () -> List<TmdbClient.Genre>,
-    onPick: (TmdbClient.Genre?) -> Unit
+    onPick: (TmdbClient.Genre?) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var genres by remember { mutableStateOf<List<TmdbClient.Genre>?>(null) }
     var open by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    WbPillButton(onClick = {
+    WbPillButton(modifier = modifier, onClick = {
         scope.launch {
             val loaded = loadGenres()
             if (loaded.isEmpty()) failed = true else { genres = loaded; open = true }
         }
     }) {
-        Text(stringResource(R.string.genre_button, genre?.name ?: stringResource(R.string.genre_none)))
+        Text(stringResource(R.string.genre_button, genre?.name ?: stringResource(R.string.genre_none)), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     if (open) {
         val list = genres.orEmpty()

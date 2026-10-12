@@ -246,10 +246,11 @@ class IptvPlayerActivity : ComponentActivity() {
     private fun PlayerContent(exo: ExoPlayer) {
         var overlay by remember { mutableStateOf(true) }
         var audioDialog by remember { mutableStateOf(false) }
+        var sendDialog by remember { mutableStateOf(false) }
         val current = channelState.intValue
         // El panel se apaga solo a los pocos segundos.
-        LaunchedEffect(overlay, current, audioDialog) {
-            if (overlay && !audioDialog) {
+        LaunchedEffect(overlay, current, audioDialog, sendDialog) {
+            if (overlay && !audioDialog && !sendDialog) {
                 delay(if (matchPanel.value != null) 9000 else 5000)
                 overlay = false
             }
@@ -302,6 +303,7 @@ class IptvPlayerActivity : ComponentActivity() {
                         TextButton(onClick = { finish() }) { Text("←  " + stringResource(R.string.iptv_player_back), color = Color.White) }
                         Row {
                             TextButton(onClick = { play(index - 1); overlay = true }) { Text("◀  " + stringResource(R.string.iptv_player_prev), color = Color.White) }
+                            TextButton(onClick = { sendDialog = true }) { Text(stringResource(R.string.iptv_send_to_tv), color = Color.White) }
                             if (audioTracks.intValue > 1) {
                                 TextButton(onClick = { audioDialog = true }) { Text("🔊  " + stringResource(R.string.iptv_player_audio), color = Color.White) }
                             }
@@ -311,6 +313,7 @@ class IptvPlayerActivity : ComponentActivity() {
                 }
             }
             if (audioDialog) AudioDialog(exo) { audioDialog = false }
+            if (sendDialog) SendChannelToTvDialog(channel) { sendDialog = false }
         }
     }
 

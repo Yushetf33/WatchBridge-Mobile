@@ -2,7 +2,9 @@ package com.tunombre.tvbridge.mobile
 
 import android.app.Application
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -257,6 +259,9 @@ private fun ListMenu(state: IptvUiState, vm: IptvViewModel, onAdd: () -> Unit) {
 
 @Composable
 private fun ChannelsList(state: IptvUiState, vm: IptvViewModel, onPlay: (IptvChannel) -> Unit) {
+    // Mantener pulsado un canal: enviarlo a la TV.
+    var sendToTv by remember { mutableStateOf<IptvChannel?>(null) }
+    sendToTv?.let { SendChannelToTvDialog(it) { sendToTv = null } }
     val groups = remember(state.channels) { state.channels.mapNotNull { it.groupTitle }.distinct().sorted() }
     val shown = remember(state.channels, state.group, state.favoritesOnly, state.query, state.favorites) {
         val q = state.query.trim().lowercase()
@@ -294,20 +299,24 @@ private fun ChannelsList(state: IptvUiState, vm: IptvViewModel, onPlay: (IptvCha
         } else {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 12.dp)) {
                 items(shown, key = { it.streamUrl }) { channel ->
-                    ChannelRow(channel, channel.key in state.favorites, state.epgVersion, onClick = { onPlay(channel) }, onFavorite = { vm.toggleFavorite(channel) })
+                    ChannelRow(
+                        channel, channel.key in state.favorites, state.epgVersion,
+                        onClick = { onPlay(channel) }, onFavorite = { vm.toggleFavorite(channel) }, onLongClick = { sendToTv = channel }
+                    )
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun ChannelRow(channel: IptvChannel, favorite: Boolean, epgVersion: Int, onClick: () -> Unit, onFavorite: () -> Unit) {
+internal fun ChannelRow(channel: IptvChannel, favorite: Boolean, epgVersion: Int, onClick: () -> Unit, onFavorite: () -> Unit, onLongClick: (() -> Unit)? = null) {
     val now = System.currentTimeMillis()
     val (current, next) = remember(channel, epgVersion, now / 60_000) { IptvRepository.nowNext(channel, now) }
     val format = remember { DateFormat.getTimeInstance(DateFormat.SHORT) }
     Row(
-        Modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth().wbCard(14).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.padding(horizontal = 12.dp, vertical = 4.dp).fillMaxWidth().wbCard(14).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF0F2429)), contentAlignment = Alignment.Center) {

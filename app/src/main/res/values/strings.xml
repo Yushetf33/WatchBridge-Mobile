@@ -284,4 +284,8 @@
     <string name="vod_director">Director: %1$s</string>
     <string name="vod_season">Season %1$d</string>
     <string name="vod_series_no_episodes">No episodes available</string>
+    <string name="iptv_send_to_tv">📺 Send to TV</string>
+    <string name="iptv_send_to_tv_title">Send %1$s to your TV</string>
+    <string name="iptv_send_to_tv_none">No TV is linked to your account yet. Open WatchBridge on your TV with the same email and it will appear here.</string>
+    <string name="iptv_send_to_tv_load_failed">Couldn\'t load your TVs — check your connection and try again.</string>
 </resources>
