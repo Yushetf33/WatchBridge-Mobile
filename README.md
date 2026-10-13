@@ -1,21 +1,42 @@
-# TvRecommendationBridge Mobile
+# WatchBridge Mobile
 
-Phone/tablet companion app to [TvRecommendationBridge](https://yushetf33.github.io/TvReccomendationBridge/) — same account, same watch history and recommendations shared with your TVs.
+The phone and tablet app that goes with [WatchBridge TV](https://github.com/Yushetf33/WatchBridge): the same account, the same watch history and the same recommendations as your TVs. Website: **[watchbridge.app](https://watchbridge.app)**.
 
-This repository only hosts downloads ([Releases](../../releases)) — the source code is private.
+This repository only hosts the downloads ([Releases](../../releases)); the source code is private.
 
 ## Download
 
-Latest APK: **[Releases → latest version](../../releases/latest)**
+Latest APK: **[Releases → latest version](../../releases/latest)** (`app-release.apk`).
 
 ## Installing
 
-Since it's not on Google Play, Android may warn about an "unknown source" or block the install with Play Protect — that's normal for any app installed this way, not specific to this one. If you see that warning, look for "More details" → "Install anyway".
+If you are not installing it from a store, Android may warn about an "unknown source" or block the install with Play Protect. That is normal for any app installed this way. Tap **More details → Install anyway**.
 
-## Features
+The app checks for new versions on its own and offers to update.
 
-- **Movies / Series / My list / History**, same tabs as the TV app, kept in sync across every device on the same account.
-- **Detail screen** for each title — poster, rating, year, runtime, synopsis, and a "More like this" row, instead of jumping straight into a player.
-- **Choose which app opens it**, per tap — your default player with one button, or pick any other installed app (Nuvio, Stremio, Plex, Jellyfin, WuPlay, Wholphin) just for that title, without changing your saved preference.
-- **Share → TvRecommendationBridge** from any app (a browser, Reddit, Telegram...) — share a link or just the title, and it resolves and opens the same detail screen.
-- **Send to TV** — if you also have [the TV app](https://github.com/Yushetf33/TvReccomendationBridge) linked to the same account, send any title to it with one tap; it opens there automatically, no need to touch the TV at all (as long as it's powered on).
+## What it does
+
+**Your library, on your phone**
+- Movies, Series, My list and History, kept in sync with your TVs on the same account.
+- A detail screen for each title (poster, rating, year, runtime, synopsis, "More like this").
+- Choose which app opens a title, per tap: your default player or any other installed one (Nuvio, Stremio, Plex, Jellyfin, WuPlay, Wholphin).
+- Share a link or a title from any app to WatchBridge Mobile and it opens the same detail screen.
+
+**Live TV (IPTV)**
+- Add your own M3U or Xtream list. Channel groups, favorites and search.
+- A program guide as a grid you can scroll, with what is on now and next.
+- Sports events: the matches and races on the guide, with team badges and alerts. While you watch a football match, the score, the minute, the goals and the yellow and red cards appear on the player when you tap the screen.
+- **Multiview:** up to 3 channels at once, with sound on the one you choose.
+- Pick the audio track of a channel.
+
+**Together with your TV**
+- Send a title or a live channel to your TV with one tap.
+- Ask your TV to record a channel from the phone.
+
+## Account
+
+The same account as WatchBridge TV: a free trial and a one-time payment, verified with your email. Nothing to buy twice.
+
+## Support
+
+contacto@watchbridge.app
